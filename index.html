@@ -74,12 +74,14 @@
   </div>
 
   <!-- Analysis Output -->
-  <div id="RUNNING_DIV" style="display: none; margin-left: 0;" class="container">
-    <hr />
-    <h2 id="RUNNING_HEADER">Top Running Methods</h2>
-    <table id="RUNNING" class="table table-bordered" summary="Top methods from all threads that are running"></table>
+  <div id="HIGH_CPU_THREADS_DIV" style="display:none;" class="mb-4">
+      <h2>High CPU Consuming Threads</h2>
+      <div id="HIGH_CPU_THREADS_TABLE"></div>
   </div>
-
+  <div id="DEADLOCKED_THREADS_DIV" style="display:none;" class="mb-4">
+    <h2>Deadlocked Threads</h2>
+    <div id="DEADLOCKED_THREADS_TABLE"></div>
+  </div>
   <div id="OUTPUT_DIV" style="display: none;" class="container">
     <hr />
     <h2>Visual Charts</h2>
