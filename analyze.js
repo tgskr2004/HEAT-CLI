@@ -104,17 +104,10 @@ function analyze(text, specialClass, threadStates) {
 
     var ignores = analyzer.toIgnoresHtml();
     setHtml("IGNORED", ignores);
-
-    var running = analyzer.toRunningHtml();
-    setHtml("RUNNING", running);
-
+    
     var synchronizers = analyzer.toSynchronizersHtml();
     setHtml("SYNCHRONIZERS", synchronizers);
 
-    var runningHeader = document.getElementById("RUNNING_HEADER");
-    runningHeader.innerHTML = "Top Methods From " +
-        analyzer.countedRunningMethods.length +
-        " Running Threads";
 
     var highCpuThreads = analyzer.getHighCpuThreads(); // Gets top 10 by default
     console.log("High CPU Consuming Threads:", highCpuThreads.map(t => ({
@@ -1161,14 +1154,9 @@ Analyzer.prototype.toHighCpuThreadsHtml = function(highCpuThreads) {
 };
 
 Analyzer.prototype.getHighCpuThreads = function(topN = 10) {
-    // --- START DEBUG LOGGING ---
     console.log("All threads before CPU filtering:", this.threads.map(t => ({ name: t.name, tid: t.tid, cpuTime: t.cpuTime })));
-    // --- END DEBUG LOGGING ---
-
     const threadsWithCpuTime = this.threads.filter(thread => thread.cpuTime && thread.cpuTime > 0);
-
     threadsWithCpuTime.sort((a, b) => b.cpuTime - a.cpuTime);
-
     return threadsWithCpuTime.slice(0, topN); 
 };
 
