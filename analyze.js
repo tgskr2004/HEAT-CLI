@@ -1085,72 +1085,10 @@ function Analyzer(text, specialClasses, threadStates) {
     this._synchronizers = this._enumerateSynchronizers();
 }
 
-//Visualizations
-// The createPieChart function
-function createPieChart(threadStateCounts, threads) {
-    var ctx = document.getElementById('threadStateChart').getContext('2d');
-    var chart = new Chart(ctx, {
-        type: 'pie',
-        data: {
-            labels: Object.keys(threadStateCounts),
-            datasets: [{
-                data: Object.values(threadStateCounts),
-                backgroundColor: [
-                    '#003f5c',
-                    '#58508d',
-                    '#bc5090',
-                    '#ff6361',
-                    '#ffa600',
-                    '#35b779'
-                ],
-                borderColor: [
-                    '#003f5c',
-                    '#58508d',
-                    '#bc5090',
-                    '#ff6361',
-                    '#ffa600',
-                    '#35b779'
-                ],
-                borderWidth: 1
-            }]
-        },
-        options: {
-            responsive: true,
-            aspectRatio: 2.75, // Makes the chart smaller
-            plugins: {
-                legend: {
-                    position: 'top',
-                    labels: {
-                        fontSize: 16, // Makes the legend text bigger
-                        boxWidth: 20
-                    }
-                },
-                title: {
-                    display: true,
-                    text: 'Thread State Statistics',
-                    font: {
-                        size: 20
-                    }
-                }
-            },
-            onClick: function(event, elements) {
-                if (elements.length > 0) {
-                    var element = elements[0];
-                    var state = chart.data.labels[element.index];
-                    console.log(state);
-                    var threadsInState = threads.filter(function(thread) {
 
-                        return thread.threadState && thread.threadState.startsWith(state);
-                    });
-                    console.log(threadsInState);
-                    openThreadsInStateWindow(state, threadsInState);
-                }
-            }
-        }
-    });
-}
 
-// Function to open a new window with the threads in the clicked state
+
+
 function openThreadsInStateWindow(state, threadsInState) {
     var newWindow = window.open("", "_blank");
     newWindow.document.write("<h2>Threads in state: " + state + "</h2>");
@@ -1185,61 +1123,6 @@ function getThreadStateCounts(threads) {
     return threadStateCounts;
 }
 
-function createBarChart(stackTraceData) {
-    console.log("In bar chart:", stackTraceData.stackTraceCounts);
-    var ctx = document.getElementById('stackTraceChart').getContext('2d');
-    new Chart(ctx, {
-        type: 'bar',
-        data: {
-            labels: Object.keys(stackTraceData.stackTraceCounts),
-            datasets: [{
-                data: Object.values(stackTraceData.stackTraceCounts),
-                backgroundColor: '#003f5c',
-                borderColor: '#58508d',
-                borderWidth: 1
-            }]
-        },
-        options: {
-            responsive: true,
-            aspectRatio: 3,
-            plugins: {
-                legend: {
-                    display: false
-                },
-                title: {
-                    display: true,
-                    text: 'Threads with Identical Stack Trace (Top 10)',
-                    font: {
-                        size: 20
-                    }
-                }
-            },
-            onClick: function(evt, item) {
-                if (item.length > 0) {
-                    var index = item[0].index;
-                    var label = this.data.labels[index];
-                    console.log("Label of the clicked bar:", label);
-                    var actualStackTrace = stackTraceData.actualStackTraces[label];
-                    console.log(actualStackTrace);
-                    // Ensure actualStackTrace is an array and join its elements into a string
-
-                    var stackTraceString = Array.isArray(actualStackTrace) ? actualStackTrace.join('\n') : String(actualStackTrace);
-                    
-                    console.log(stackTraceString);
-                     // Open a new window
-                    var newWindow = window.open("");
-                    if (newWindow) {
-                        // Write the stack trace into the new window
-                        newWindow.document.write("<pre>" + stackTraceString + "</pre>");
-                        newWindow.document.close();
-                    } else {
-                        alert("Pop-up blocked. Please allow pop-ups for this website.");
-                    }
-                }
-            }
-        },
-    });
-}
 
 
 function getStackTraceCounts(allFilteredThreadsandStacks) {
@@ -1268,59 +1151,149 @@ function getStackTraceCounts(allFilteredThreadsandStacks) {
     return {stackTraceCounts, actualStackTraces};
 }
 
-function createDaemonChart(threads) {
-    var daemonThreads = threads.filter(thread => thread.daemon);
-    var nonDaemonThreads = threads.filter(thread => !thread.daemon);
+// --- PATCHED analyze.js ---
+// This version sets flags on chart completion for reliable Puppeteer wait
 
-    // Prepare data for the chart
-    var data = {
-        datasets: [{
-            data: [daemonThreads.length, nonDaemonThreads.length],
-            backgroundColor: ["#ff7f0e", "#2ca02c"],
-        }],
-        labels: ['Daemon Threads', 'Non-Daemon Threads']
-    };
+function createPieChart(threadStateCounts, threads) {
+    const labels = Object.keys(threadStateCounts);
+    const counts = Object.values(threadStateCounts);
+    const colors = [
+        '#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40'
+    ];
 
-    // Create the chart
-    var ctx = document.getElementById('daemonDonughtChart').getContext('2d');
-    new Chart(ctx, {
-        type: 'doughnut',
-        data: data,
+    if (window.threadStateChartInstance) {
+        window.threadStateChartInstance.destroy();
+    }
+
+    const ctx = document.getElementById('threadStateChart').getContext('2d');
+    window.threadStateChartInstance = new Chart(ctx, {
+        type: 'pie',
+        data: {
+            labels,
+            datasets: [{
+                data: counts,
+                backgroundColor: colors.slice(0, labels.length)
+            }]
+        },
         options: {
             responsive: true,
             aspectRatio: 2.75,
             plugins: {
                 legend: {
                     position: 'top',
+                    labels: {
+                        font: { size: 14 },
+                        usePointStyle: true,
+                        generateLabels: chart => chart.data.labels.map((label, i) => ({
+                            text: `${label}: ${chart.data.datasets[0].data[i]}`,
+                            fillStyle: chart.data.datasets[0].backgroundColor[i],
+                            strokeStyle: chart.data.datasets[0].backgroundColor[i],
+                            hidden: false,
+                            index: i
+                        }))
+                    }
                 },
                 title: {
                     display: true,
-                    text: 'Daemon vs Non-Daemon Threads',
-                    font: {
-                        size: 20
-                    }
-                },
+                    text: 'Thread State Statistics',
+                    font: { size: 20 }
+                }
             },
             animation: {
-                animateScale: true,
-                animateRotate: true
-            },
-            onClick: function(event, elements) {
-                if (elements.length > 0) {
-                    var index = elements[0].index;
-                    console.log(index);
-                    var threads = index === 0 ? daemonThreads : nonDaemonThreads;
-                    var threadNames = threads.map(thread => thread.name);
-                    // Open a new window with the list of threads
-                    var newWindow = window.open("", "_blank");
-                    if (newWindow) {
-                        newWindow.document.write(threadNames.join('<br>'));
-                        newWindow.document.close();
-                    } else {
-                        alert("Pop-up blocked. Please allow pop-ups for this website.");
-                    }
+                onComplete: () => {
+                    document.body.setAttribute('chart-done-threadStateChart', 'true');
+                    checkAllChartsDone();
                 }
             }
         }
     });
+}
+
+function createBarChart(stackTraceData) {
+    const ctx = document.getElementById('stackTraceChart').getContext('2d');
+    window.stackTraceChartInstance = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: Object.keys(stackTraceData.stackTraceCounts),
+            datasets: [{
+                data: Object.values(stackTraceData.stackTraceCounts),
+                backgroundColor: '#003f5c',
+                borderColor: '#58508d',
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            aspectRatio: 3,
+            plugins: {
+                legend: { display: false },
+                title: {
+                    display: true,
+                    text: 'Threads with Identical Stack Trace (Top 10)',
+                    font: { size: 20 }
+                }
+            },
+            animation: {
+                onComplete: () => {
+                    document.body.setAttribute('chart-done-stackTraceChart', 'true');
+                    checkAllChartsDone();
+                }
+            }
+        }
+    });
+}
+
+function createDaemonChart(threads) {
+    const daemonCount = threads.filter(t => t.daemon).length;
+    const nonDaemonCount = threads.length - daemonCount;
+
+    if (window.daemonDonughtChartInstance) {
+        window.daemonDonughtChartInstance.destroy();
+    }
+
+    const ctx = document.getElementById('daemonDonughtChart').getContext('2d');
+    window.daemonDonughtChartInstance = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: ['Daemon Threads', 'Non‐Daemon Threads'],
+            datasets: [{ data: [daemonCount, nonDaemonCount], backgroundColor: ['#ff7f0e', '#2ca02c'] }]
+        },
+        options: {
+            responsive: true,
+            aspectRatio: 2.75,
+            plugins: {
+                legend: {
+                    position: 'top',
+                    labels: {
+                        font: { size: 14 },
+                        generateLabels: chart => chart.data.labels.map((label, i) => ({
+                            text: `${label}: ${chart.data.datasets[0].data[i]}`,
+                            fillStyle: chart.data.datasets[0].backgroundColor[i],
+                            hidden: false,
+                            index: i
+                        }))
+                    }
+                },
+                title: {
+                    display: true,
+                    text: 'Daemon vs Non‐Daemon Threads',
+                    font: { size: 20 }
+                }
+            },
+            animation: {
+                onComplete: () => {
+                    document.body.setAttribute('chart-done-daemonDonughtChart', 'true');
+                    checkAllChartsDone();
+                }
+            }
+        }
+    });
+}
+
+function checkAllChartsDone() {
+    const allDone = ['chart-done-threadStateChart', 'chart-done-stackTraceChart', 'chart-done-daemonDonughtChart']
+        .every(attr => document.body.getAttribute(attr) === 'true');
+    if (allDone) {
+        document.body.setAttribute('charts-render-complete', 'true');
+    }
 }

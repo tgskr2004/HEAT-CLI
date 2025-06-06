@@ -19,12 +19,15 @@
         "thread",
         "thread dump"
     ],
-    "dependencies": {},
+    "dependencies": {
+        "dotenv": "^16.5.0",
+        "puppeteer": "^24.10.0"
+    },
     "devDependencies": {
-        "gulp-qunit": "2.0.3",
+        "gulp": "4.0.2",
+        "gulp-csslint": "1.0.1",
         "gulp-eslint": "6.0.0",
         "gulp-htmlhint": "2.2.1",
-        "gulp-csslint": "1.0.1",
-        "gulp": "4.0.2"
+        "gulp-qunit": "2.0.3"
     }
 }
