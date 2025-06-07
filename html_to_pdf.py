@@ -1,0 +1,139 @@
+import argparse
+import sys
+from pathlib import Path
+from playwright.sync_api import sync_playwright, TimeoutError as PlaywrightTimeoutError
+from bs4 import BeautifulSoup
+from PyPDF2 import PdfMerger
+
+def get_rewrite_links_js(output_dir: Path) -> str:
+    report_pdf_dir_uri = output_dir.resolve().as_uri()
+    return rf"""
+    (() => {{
+      const pdfBase = "{report_pdf_dir_uri}/";
+      document.querySelectorAll('a[href]').forEach(a => {{
+        const href = a.getAttribute('href');
+        if (!href || /^(https?:|\/\/|file:|#)/i.test(href)) return;
+
+        const match = href.match(/([^/\\]+)\.html(#.*)?$/i);
+        if (match) {{
+          const filename = match[1];
+          const anchor = match[2] || '';
+          a.setAttribute('href', pdfBase + filename + '.pdf' + anchor);
+        }}
+      }});
+    }})();
+    """
+
+def convert_all_html_to_pdf(input_dir: Path, output_dir: Path, timeout_ms: int = 30000):
+    html_paths = list(input_dir.rglob('*.html'))
+    if not html_paths:
+        print(f"[!] No HTML files found under {input_dir.resolve()}", file=sys.stderr)
+        return
+
+    print(f"[+] Found {len(html_paths)} HTML file(s) under {input_dir.resolve()}")
+    with sync_playwright() as p:
+        browser = p.chromium.launch(headless=True)
+        used_names = set()
+
+        for html_path in html_paths:
+            filename = html_path.name
+            pdf_name = Path(filename).with_suffix('.pdf')
+            out_pdf = output_dir / pdf_name
+
+            if pdf_name.name in used_names:
+                print(f"[!] Skipping duplicate filename: {pdf_name.name} (already written)")
+                continue
+            used_names.add(pdf_name.name)
+
+            out_pdf.parent.mkdir(parents=True, exist_ok=True)
+            file_url = html_path.resolve().as_uri()
+            print(f"  → Converting:\n      {html_path}\n     → {out_pdf}", end=" … ")
+
+            try:
+                page = browser.new_page(viewport={"width": 1280, "height": 800})
+                page.goto(file_url, wait_until='networkidle', timeout=timeout_ms)
+                page.evaluate(get_rewrite_links_js(output_dir))
+                page.pdf(
+                    path=str(out_pdf),
+                    print_background=True,
+                    width="1280px",
+                    scale=1.0
+                )
+                page.close()
+                print("Done.")
+            except PlaywrightTimeoutError:
+                print("✒ Timeout loading page (skipped).")
+            except Exception as e:
+                print(f"✒ Error: {e}")
+
+        browser.close()
+    print("[+] All done.")
+
+def extract_pdf_order_from_toc_html(toc_html_path: Path) -> list[str]:
+    with open(toc_html_path, "r", encoding="utf-8") as f:
+        soup = BeautifulSoup(f, "html.parser")
+
+    seen = set()
+    ordered = []
+
+    for a in soup.find_all("a", href=True):
+        href = a["href"].split("#")[0]
+        if href.endswith(".html"):
+            html_name = Path(href).name
+            pdf_name = Path(html_name).with_suffix(".pdf").name
+            if pdf_name not in seen:
+                seen.add(pdf_name)
+                ordered.append(pdf_name)
+
+    return ordered
+
+
+def merge_pdfs_by_toc_html(toc_html_path: Path, pdf_dir: Path, output_pdf: Path):
+    order = extract_pdf_order_from_toc_html(toc_html_path)
+    merger = PdfMerger()
+
+    toc_pdf = pdf_dir / "toc.pdf"
+    if toc_pdf.exists():
+        print("[+] Appending TOC first")
+        merger.append(str(toc_pdf))
+    else:
+        print("[!] toc.pdf not found, skipping it")
+
+    for pdf_name in order:
+        pdf_path = pdf_dir / pdf_name
+        if pdf_path.exists():
+            merger.append(str(pdf_path))
+            print(f"[+] Appended: {pdf_name}")
+        else:
+            print(f"[!] Missing: {pdf_name}")
+
+    merger.write(str(output_pdf))
+    merger.close()
+    print(f"[✓] Final merged PDF written to: {output_pdf}")
+
+def main():
+    parser = argparse.ArgumentParser(description="Convert HTML to flat-structured PDFs (no folders) with links preserved.")
+    parser.add_argument('--input_dir', '-i', type=Path, required=True, help="Input folder with .html files")
+    parser.add_argument('--output_dir', '-o', type=Path, required=True, help="Output folder for .pdf files")
+    parser.add_argument('--merge_pdf', action='store_true', help="Merge PDFs into single file using TOC order")
+    parser.add_argument('--toc_html', type=Path, help="Path to toc.html (used for merging order)")
+    args = parser.parse_args()
+
+    input_dir = args.input_dir.expanduser().resolve()
+    output_dir = args.output_dir.expanduser().resolve()
+
+    if not input_dir.is_dir():
+        print(f"[!] ERROR: input_dir {input_dir} is not a directory.", file=sys.stderr)
+        sys.exit(1)
+
+    output_dir.mkdir(parents=True, exist_ok=True)
+    convert_all_html_to_pdf(input_dir, output_dir)
+
+    if args.merge_pdf:
+        if not args.toc_html:
+            print("[!] --toc_html must be specified when using --merge_pdf", file=sys.stderr)
+            sys.exit(1)
+        merge_pdfs_by_toc_html(args.toc_html.resolve(), output_dir, output_dir / "merged_report.pdf")
+
+if __name__ == '__main__':
+    main()
