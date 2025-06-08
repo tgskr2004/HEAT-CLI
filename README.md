@@ -1,4 +1,4 @@
-# 🧠 Java Diagnostic Toolkit — Thread & Heap Dump Analyzer
+# 🧠 HEAT — Thread & Heap Dump Analyzer
 
 This unified tool provides automation, analysis, and PDF report generation for:
 
