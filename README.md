@@ -1,5 +1,5 @@
 
-# 🧠 HEAT — Thread, Heap & JMAP Dump Analyzer
+# 🧠 HEAT (Heap Evaluation Analysis Tool) — Thread, Heap & JMAP Dump Analyzer
 
 This unified tool provides automation, analysis, and PDF report generation for:
 
