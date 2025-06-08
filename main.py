@@ -9,13 +9,16 @@ from watchdog.events import FileSystemEventHandler
 from mailer import send_report_email
 
 load_dotenv()
-
 BASE_DIR = Path(__file__).resolve().parent
-HEAP_DIR = BASE_DIR / "heap_files"
-THREAD_DIR = BASE_DIR / "thread_files"
+FILES_DIR = BASE_DIR / "files"
+HEAP_DIR = FILES_DIR / "heapdumps"
+THREAD_DIR = FILES_DIR / "Jstack files"
+JMAP_DIR = FILES_DIR / "Jmap files"
 REPORT_DIR = BASE_DIR / "report"
 
+FILES_DIR.mkdir(exist_ok=True)
 HEAP_DIR.mkdir(exist_ok=True)
+JMAP_DIR.mkdir(exist_ok=True)
 THREAD_DIR.mkdir(exist_ok=True)
 
 NODE_CMD = "node"
@@ -33,7 +36,6 @@ else:
     print("❌ No recipients configured. Exiting.")
     sys.exit(1)
 
-
 # 🔍 Utility to find latest heap PDF folder
 def get_latest_heap_pdf_folder(base_path="."):
     workflow_dirs = sorted(
@@ -47,20 +49,18 @@ def get_latest_heap_pdf_folder(base_path="."):
             return pdf_dir
     return None
 
-
-# 📂 Heap dump file watcher
+# 📦 Heap dump file watcher
 class HeapHandler(FileSystemEventHandler):
     def on_created(self, event):
         if event.is_directory or not event.src_path.endswith(".hprof"):
             return
 
         hprof_path = Path(event.src_path)
-        print(f"📁 New .hprof detected: {hprof_path.name}")
+        print(f"📦 New heap dump (.hprof) detected: {hprof_path.name}")
 
         try:
             subprocess.run(["bash", HEAP_SCRIPT, str(hprof_path)], check=True)
             latest_pdf_folder = get_latest_heap_pdf_folder()
-            timestamp = time.strftime("%Y%m%d-%H%M%S")
             if latest_pdf_folder:
                 send_report_email(
                     recipient=RECIPIENTS[0],
@@ -70,13 +70,11 @@ class HeapHandler(FileSystemEventHandler):
                     report_type="heap"
                 )
             else:
-                print("❌ No PDF folder found after processing.")
+                print("❌ No PDF folder found after processing heap dump.")
         except subprocess.CalledProcessError as e:
             print(f"❌ Error during heap dump processing: {e}")
-        print(f"✅ Done with {hprof_path.name}\n")
+        print(f"✅ Done with heap dump: {hprof_path.name}\n")
 
-
-# 🧵 Thread dump file watcher
 class ThreadHandler(FileSystemEventHandler):
     def on_created(self, event):
         if event.is_directory or not event.src_path.endswith(".txt"):
@@ -85,14 +83,14 @@ class ThreadHandler(FileSystemEventHandler):
         txt_path = Path(event.src_path)
         pdf_path = txt_path.with_suffix(".pdf")
 
-        print(f"🧾 New thread dump detected: {txt_path.name}")
+        print(f"🧵 New thread dump (.txt) detected: {txt_path.name}")
         try:
             subprocess.run(
                 [NODE_CMD, str(THREAD_JS), str(txt_path), str(pdf_path)],
                 check=True
             )
         except subprocess.CalledProcessError as e:
-            print(f"❌ Error generating PDF for {txt_path.name}: {e}")
+            print(f"❌ Error generating PDF for thread dump: {txt_path.name}: {e}")
             return
 
         try:
@@ -104,17 +102,51 @@ class ThreadHandler(FileSystemEventHandler):
                 report_type="thread"
             )
         except Exception as exc:
-            print(f"❌ Email error: {exc}")
-        print(f"✅ Done with {txt_path.name}\n")
+            print(f"❌ Email error for thread dump: {exc}")
+        print(f"✅ Done with thread dump: {txt_path.name}\n")
+
+class JmapHandler(FileSystemEventHandler):
+    def on_created(self, event):
+        if event.is_directory or not event.src_path.endswith(".txt"):
+            return
+
+        jmap_path = Path(event.src_path)
+        pdf_path = jmap_path.with_suffix(".pdf")
+
+        print(f"📊 New JMAP file detected: {jmap_path.name}")
+        try:
+            subprocess.run(
+                [NODE_CMD, str(THREAD_JS), str(jmap_path), str(pdf_path)],
+                check=True
+            )
+        except subprocess.CalledProcessError as e:
+            print(f"❌ Error generating PDF for JMAP file: {jmap_path.name}: {e}")
+            return
+
+        try:
+            send_report_email(
+                recipient=RECIPIENTS[0],
+                subject=f"JMAP Heap Report: {pdf_path.name}",
+                body=f"Attached is the heap usage report from JMAP file: {jmap_path.name}",
+                pdf_paths=[str(pdf_path)],
+                report_type="jmap"
+            )
+        except Exception as exc:
+            print(f"❌ Email error for JMAP file: {exc}")
+        print(f"✅ Done with JMAP file: {jmap_path.name}\n")
 
 
 # 🎯 Main execution
 if __name__ == "__main__":
-    print(f"👀 Watching {HEAP_DIR} for .hprof and {THREAD_DIR} for .txt")
+    print("👀 Watching the following folders:")
+    print(f"   📦 HEAP:   {HEAP_DIR}")
+    print(f"   🧵 JSTACK: {THREAD_DIR}")
+    print(f"   📊 JMAP:   {JMAP_DIR}")
 
     observer = Observer()
     observer.schedule(HeapHandler(), str(HEAP_DIR), recursive=False)
     observer.schedule(ThreadHandler(), str(THREAD_DIR), recursive=False)
+    observer.schedule(JmapHandler(), str(JMAP_DIR), recursive=False)
     observer.start()
 
     try:
