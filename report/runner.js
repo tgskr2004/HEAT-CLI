@@ -21,14 +21,14 @@ async function generatePDF(inputPath, outputPdfPath) {
       console.error(`Page Error: ${error.message}`);
     });
 
-    const analyzerIndex = path.resolve(__dirname, '..', 'index.html');
+    const analyzerIndex = path.resolve(__dirname, '..', 'Analyzer', 'index.html');
+
     await page.goto(`file://${analyzerIndex}`, { waitUntil: 'networkidle0' });
 
     const rawContent = fs.readFileSync(inputPath, 'utf8');
-    const isJmapFile = inputPath.toLowerCase().includes("heap") || inputPath.toLowerCase().includes("jmap");
+    const isJmapFile =inputPath.toLowerCase().includes("jmap");
     const isJstackFile = inputPath.toLowerCase().includes("jstack");
 
-    // Set dynamic title based on file type
     const title = isJmapFile ? "JMAP File Report" : isJstackFile ? "JSTACK File Report" : "Heap Dump/Thread Dump Report";
 
     const allStates = ['RUNNABLE', 'BLOCKED', 'NEW', 'TERMINATED', 'TIMED_WAITING', 'WAITING'];
@@ -39,7 +39,7 @@ async function generatePDF(inputPath, outputPdfPath) {
     if (isJmapFile) {
       await page.evaluate((text, reportTitle) => {
         document.getElementById('TEXTAREA').value = text;
-        document.title = reportTitle;  // Set title dynamically
+        document.title = reportTitle;  
         if (typeof analyzeHeapDump === 'function') {
           const output = analyzeHeapDump(text);
           displayOutput(output);
