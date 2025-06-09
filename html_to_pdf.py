@@ -24,7 +24,7 @@ def get_rewrite_links_js(output_dir: Path) -> str:
     }})();
     """
 
-def get_expand_all_sections_js() -> str:
+def get_expand_all_sections_js() -> str: #deals with hidden divs that appear on clicking arrow
     return r"""
     (() => {
       const anchors = document.querySelectorAll('a[onclick*="hide(this"]');
@@ -147,7 +147,7 @@ def main():
         if not args.toc_html:
             print("[!] --toc_html must be specified when using --merge_pdf", file=sys.stderr)
             sys.exit(1)
-        merge_pdfs_by_toc_html(args.toc_html.resolve(), output_dir, output_dir / "merged_report.pdf")
+        merge_pdfs_by_toc_html(args.toc_html.resolve(), output_dir, output_dir / "Complete_Report.pdf")
 
 if __name__ == '__main__':
     main()
