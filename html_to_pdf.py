@@ -24,6 +24,24 @@ def get_rewrite_links_js(output_dir: Path) -> str:
     }})();
     """
 
+def get_expand_all_sections_js() -> str:
+    return r"""
+    (() => {
+      const anchors = document.querySelectorAll('a[onclick*="hide(this"]');
+      for (const anchor of anchors) {
+        const onclick = anchor.getAttribute('onclick');
+        const match = onclick.match(/hide\(this,\s*'([^']+)'/);
+        if (match && match[1]) {
+          const targetId = match[1];
+          const target = document.getElementById(targetId);
+          if (target) {
+            target.style.display = 'block';
+          }
+        }
+      }
+    })();
+    """
+
 def convert_all_html_to_pdf(input_dir: Path, output_dir: Path, timeout_ms: int = 30000):
     html_paths = list(input_dir.rglob('*.html'))
     if not html_paths:
@@ -41,7 +59,6 @@ def convert_all_html_to_pdf(input_dir: Path, output_dir: Path, timeout_ms: int =
             out_pdf = output_dir / pdf_name
 
             if pdf_name.name in used_names:
-                print(f"[!] Skipping duplicate filename: {pdf_name.name} (already written)")
                 continue
             used_names.add(pdf_name.name)
 
@@ -53,6 +70,8 @@ def convert_all_html_to_pdf(input_dir: Path, output_dir: Path, timeout_ms: int =
                 page = browser.new_page(viewport={"width": 1280, "height": 800})
                 page.goto(file_url, wait_until='networkidle', timeout=timeout_ms)
                 page.evaluate(get_rewrite_links_js(output_dir))
+                page.evaluate(get_expand_all_sections_js())  # 👈 expands collapsibles
+
                 page.pdf(
                     path=str(out_pdf),
                     print_background=True,
@@ -87,25 +106,20 @@ def extract_pdf_order_from_toc_html(toc_html_path: Path) -> list[str]:
 
     return ordered
 
-
 def merge_pdfs_by_toc_html(toc_html_path: Path, pdf_dir: Path, output_pdf: Path):
     order = extract_pdf_order_from_toc_html(toc_html_path)
     merger = PdfMerger()
 
     toc_pdf = pdf_dir / "toc.pdf"
     if toc_pdf.exists():
-        print("[+] Appending TOC first")
         merger.append(str(toc_pdf))
-    else:
-        print("[!] toc.pdf not found, skipping it")
 
     for pdf_name in order:
+        if pdf_name == "toc.pdf":
+            continue  
         pdf_path = pdf_dir / pdf_name
         if pdf_path.exists():
             merger.append(str(pdf_path))
-            print(f"[+] Appended: {pdf_name}")
-        else:
-            print(f"[!] Missing: {pdf_name}")
 
     merger.write(str(output_pdf))
     merger.close()

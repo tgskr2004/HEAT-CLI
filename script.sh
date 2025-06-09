@@ -22,7 +22,7 @@ if [[ ! -f "$HTML2PDF_SCRIPT" ]]; then
 fi
 
 TIMESTAMP="$(date +%Y%m%d-%H%M%S)"
-WORKDIR="$(pwd)/hprof_workflow_${TIMESTAMP}"
+WORKDIR="$(pwd)/files/heapdumps/hprof_workflow_${TIMESTAMP}"
 mkdir -p "$WORKDIR"
 echo "→ Working directory will be: $WORKDIR"
 
@@ -39,7 +39,6 @@ if [[ ! -f "$SUSPECT_ZIP" ]]; then
   echo "ERROR: Expected ${HPROF_BASENAME}_leak_suspects.zip but didn’t find it in $HPROF_DIR."
   exit 1
 fi
-echo "    → Detected suspects ZIP at: $SUSPECT_ZIP"
 
 echo ">>> Step 2: Extracting '$SUSPECT_ZIP'…"
 LEAK_HTML_DIR="$WORKDIR/leak-suspects"
@@ -54,14 +53,12 @@ mkdir -p "$PDF_OUTDIR"
 TOC_HTML="$LEAK_HTML_DIR/toc.html"
 
 if [[ -f "$TOC_HTML" ]]; then
-  echo ">>> TOC found. Will merge PDFs based on TOC order…"
   python3 "$HTML2PDF_SCRIPT" \
       --input_dir "$LEAK_HTML_DIR" \
       --output_dir "$PDF_OUTDIR" \
       --merge_pdf \
       --toc_html "$TOC_HTML"
 else
-  echo ">>> No TOC found. Converting HTMLs without merging…"
   python3 "$HTML2PDF_SCRIPT" \
       --input_dir "$LEAK_HTML_DIR" \
       --output_dir "$PDF_OUTDIR"
