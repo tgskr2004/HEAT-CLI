@@ -1,17 +1,22 @@
-# 🧠 Java Diagnostic Toolkit — Thread & Heap Dump Analyzer
+
+# 🧠 HEAT (Heap Evaluation Analysis Tool) — Thread, Heap & JMAP Dump Analyzer
 
 This unified tool provides automation, analysis, and PDF report generation for:
 
-- 🧵 **Java Thread Dumps** (based on [Spotify's Thread Dump Analyzer](https://github.com/spotify/threaddump-analyzer) with visualization enhancements)
-- 📦 **Java Heap Dumps** (using [Eclipse Memory Analyzer (MAT)](https://www.eclipse.org/mat/))
+- 🧵 **Jstack Java Thread Dumps** (based on [Spotify's Thread Dump Analyzer](https://github.com/spotify/threaddump-analyzer) with visualization enhancements)
+- 📦 **Java Heap Dumps** (`.hprof` via [Eclipse MAT](https://www.eclipse.org/mat/))
+- 📊 **JMAP Text Output Files** (e.g., from `jmap -histo` or similar)
 
-It supports **automated watching**, **PDF generation**, and **email delivery** for both `.txt` (thread dump) and `.hprof` (heap dump) files.
+It supports **automated watching**, **PDF generation**, and **email delivery** for:
+
+- `.txt` (thread dumps or JMAP output)
+- `.hprof` (heap dumps)
 
 ---
 
 ## ✅ Features
 
-### 📊 Thread Dump Analyzer
+### 🧵 Thread Dump Analyzer
 - Paste or upload Java thread dump (`.txt`)
 - Filter by:
   - Thread states (RUNNABLE, WAITING, etc.)
@@ -20,22 +25,28 @@ It supports **automated watching**, **PDF generation**, and **email delivery** f
   - Thread state pie chart
   - Stack trace bar chart
   - Daemon vs Non-Daemon doughnut chart
-- Auto-generate PDF via headless browser
-- Auto-send via email
 
-### 🗃️ Heap Dump Analyzer
-- Supports `.hprof` files
+---
+
+### 🗃️ Heap Dump Analyzer (`.hprof`)
 - Uses Eclipse MAT internally
-- Automatically generates PDF reports
-- Auto-sends to your email
+- Parses `.hprof` files for leak suspects and top components
+
+---
+
+### 📊 JMAP File Analyzer
+- Supports `.txt` files generated from tools like `jmap`
+- Parses class-level memory data (instances, size, class names)
+- Sorts and presents in a structured table
+- Generates clean PDF reports 
 
 ---
 
 ## 📦 Requirements
 
-- **Node.js** and `npm` for the thread dump tool (tested on Node 13+)
+- **Node.js** and `npm` for the thread & JMAP analyzer (tested on Node 13+)
 - **Python 3.6+**
-- **Eclipse MAT** installed (for heap dump analysis)
+- **Eclipse MAT** installed (for `.hprof` heap dump analysis)
 
 ---
 
@@ -71,6 +82,7 @@ Then:
 pip install -r requirements.txt
 ```
 
+---
 
 ## 📧 .env Configuration
 
@@ -99,9 +111,10 @@ python main.py
 This will:
 
 1. Prompt for email address (or use `.env` default)
-2. Watch the following:
-   - `heap_files/` for new `.hprof` files
-   - `thread_files/` for new `.txt` thread dumps
+2. Watch these folders:
+   - `heapdumps/` for new `.hprof` files
+   - `Jstack files/` for `.txt` thread dumps
+   - `Jmap files/` for `.txt` JMAP files
 3. Automatically:
    - Analyze the new file
    - Generate PDF reports
@@ -109,9 +122,9 @@ This will:
 
 ---
 
-## 🧪 Manual Thread Dump Analysis (Browser)
+## 🧪 Manual Thread/JMAP Analysis (Browser)
 
-You can also run the thread analyzer manually:
+You can also run the analyzer manually in a browser:
 
 ```bash
 npm install
@@ -123,36 +136,42 @@ Then open:
 index.html
 ```
 
-> Use the file input or paste your thread dump into the textbox and click **Analyze**.
+Paste the text into the input box or upload your `.txt` file (thread dump or JMAP), and click **Analyze**.
 
 ---
 
 ## 📌 Notes
 
-- Eclipse MAT must be installed and its path updated in `script.sh`:
+- Eclipse MAT must be installed and path configured in `script.sh`:
   ```bash
   HEAP_TOOL_DIR="/Applications/MemoryAnalyzer.app/Contents/Eclipse"  # macOS default
   ```
-
-- PDF generation for thread dumps uses Puppeteer in headless mode (no browser opens).
-- Thread charts and tables are rendered before printing — no manual interaction needed.
+- Puppeteer is used to render charts or JMAP tables before printing
+- JMAP PDFs:
+  - Skip charts entirely
+  - Start from the data table
+  - Are cleanly formatted for printing
 
 ---
 
 ## 📤 Output Structure
 
-For each file:
-
-### 🧵 Thread Dump:
+### 🧵 Thread Dump (`.txt`)
 - `<file>.pdf` is generated beside the input `.txt`
 - Emailed automatically
 
-### 📦 Heap Dump:
-- Folder like `hprof_workflow_20250602-145501/` is created
-- Inside: 
+### 📦 Heap Dump (`.hprof`)
+- Creates a folder like `hprof_workflow_YYYYMMDD-HHMMSS/`
+- Inside:
   - `Report_PDFs/`: final PDF(s)
   - `leak-suspects/`: raw HTML from MAT
-- PDF(s) are emailed after generation
+- PDF(s) emailed automatically
+
+### 📊 JMAP File (`.txt`)
+- `<file>.pdf` generated beside input `.txt`
+- Contains sorted class-level memory data
+- Charts and placeholders are removed
+- Emailed automatically
 
 ---
 
@@ -168,6 +187,7 @@ For each file:
 
 ## 🏁 Final Tips
 
-- Refresh the HTML page or use **Clear All** before doing multiple analyses in one session.
-- Ensure Chrome/Chromium is installed for Puppeteer to function properly.
-- Supports both Mac and Windows environments.
+- Refresh the browser page or click **Clear All** before multiple analyses
+- Make sure Chromium is installed (for Puppeteer)
+- JMAP `.txt` files must be plain text (e.g. output of `jmap -histo`)
+- The tool supports both **macOS** and **Windows**
