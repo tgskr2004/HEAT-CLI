@@ -59,6 +59,7 @@ class HeapHandler(FileSystemEventHandler):
             subprocess.run(["bash", HEAP_SCRIPT, str(hprof_path)], check=True)
             latest_pdf_folder = get_latest_heap_pdf_folder()
             if latest_pdf_folder:
+                print("Mailing the Heap Dump Report...")
                 send_report_email(
                     recipient=RECIPIENTS[0],
                     subject=f"Heap Dump Report: {hprof_path.name}",
@@ -66,6 +67,7 @@ class HeapHandler(FileSystemEventHandler):
                     pdf_paths=list(latest_pdf_folder.glob("*.pdf")),
                     report_type="heap"
                 )
+                
             else:
                 print("❌ No PDF folder found after processing heap dump.")
         except subprocess.CalledProcessError as e:
@@ -91,6 +93,7 @@ class ThreadHandler(FileSystemEventHandler):
             return
 
         try:
+            print("Mailing the Jstack Thread Dump Report...")
             send_report_email(
                 recipient=RECIPIENTS[0],
                 subject=f"Thread Dump Report: {pdf_path.name}",
@@ -98,6 +101,7 @@ class ThreadHandler(FileSystemEventHandler):
                 pdf_paths=[str(pdf_path)],
                 report_type="thread"
             )
+            
         except Exception as exc:
             print(f"❌ Email error for thread dump: {exc}")
         print(f"✅ Done with thread dump: {txt_path.name}\n")
@@ -121,6 +125,7 @@ class JmapHandler(FileSystemEventHandler):
             return
 
         try:
+            print("Mailing the JMAP Report...")
             send_report_email(
                 recipient=RECIPIENTS[0],
                 subject=f"JMAP Heap Report: {pdf_path.name}",
