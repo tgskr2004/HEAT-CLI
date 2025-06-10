@@ -1452,8 +1452,13 @@ function createBarChart(stackTraceData) {
 }
 
 function createDaemonChart(threads) {
-    const daemonCount = threads.filter(t => t.daemon).length;
-    const nonDaemonCount = threads.length - daemonCount;
+    const daemonThreads = threads
+        .filter(t => t.daemon)
+        .sort((a, b) => (b.cpuTime || 0) - (a.cpuTime || 0));
+
+    const nonDaemonThreads = threads
+        .filter(t => !t.daemon)
+        .sort((a, b) => (b.cpuTime || 0) - (a.cpuTime || 0));
 
     if (window.daemonDonughtChartInstance) {
         window.daemonDonughtChartInstance.destroy();
@@ -1464,7 +1469,7 @@ function createDaemonChart(threads) {
         type: 'doughnut',
         data: {
             labels: ['Daemon Threads', 'Non‐Daemon Threads'],
-            datasets: [{ data: [daemonCount, nonDaemonCount], backgroundColor: ['#ff7f0e', '#2ca02c'] }]
+            datasets: [{ data: [daemonThreads.length, nonDaemonThreads.length], backgroundColor: ['#ff7f0e', '#2ca02c'] }]
         },
         options: {
             responsive: true,
@@ -1496,7 +1501,33 @@ function createDaemonChart(threads) {
             }
         }
     });
+    
+    function renderThreadTable(containerId, threadList) {
+        if (threadList.length === 0) {
+            document.getElementById(containerId + "_DIV").style.display = "none";
+            return;
+        }
+
+        let html = '<table class="table table-bordered table-striped table-sm">';
+        html += '<thead><tr><th>Name</th><th>State</th><th>CPU Time (ms)</th></tr></thead><tbody>';
+
+        threadList.forEach(thread => {
+            html += '<tr>';
+            html += `<td>${htmlEscape(thread.name)}</td>`;
+            html += `<td>${htmlEscape(thread.threadState || 'N/A')}</td>`;
+            html += `<td>${thread.cpuTime || 0}</td>`;
+            html += '</tr>';
+        });
+
+        html += '</tbody></table>';
+        document.getElementById(containerId + "_TABLE").innerHTML = html;
+        document.getElementById(containerId + "_DIV").style.display = "block";
+    }
+
+    renderThreadTable("DAEMON_THREADS", daemonThreads);
+    renderThreadTable("NON_DAEMON_THREADS", nonDaemonThreads);
 }
+
 
 function checkAllChartsDone() {
     const allDone = ['chart-done-threadStateChart', 'chart-done-stackTraceChart', 'chart-done-daemonDonughtChart']
