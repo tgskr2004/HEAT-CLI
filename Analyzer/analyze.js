@@ -1,4 +1,3 @@
-
 /*
 Copyright 2014 Spotify AB
 
@@ -29,60 +28,7 @@ function analyzeTextfield() {
     // Get selected thread states from the multi-select dropdown
     var threadStates = Array.from(document.getElementById('threadStates').selectedOptions).map(option => option.value);
     console.log(threadStates);
-
     var text = document.getElementById("TEXTAREA").value;
-    function detectDeadlocks(rawText) {
-        const lines = rawText.split('\n');
-        const deadlocks = [];
-        let inDeadlockBlock = false;
-        let currentThreads = [];
-
-        for (let i = 0; i < lines.length; i++) {
-            const line = lines[i].trim();
-            if (line.includes("Found one Java-level deadlock")) {
-            inDeadlockBlock = true;
-            continue;
-            }
-
-            if (inDeadlockBlock) {
-                if (line.startsWith('"')) {
-                    const threadMatch = line.match(/^"(.+?)"/);
-                    if (threadMatch) {
-                    currentThreads.push(threadMatch[1]);
-                    }
-                } else if (line === "") {
-                    if (currentThreads.length >= 2) {
-                        deadlocks.push([...currentThreads]);
-                    }
-                    inDeadlockBlock = false;
-                    currentThreads = [];
-                }
-            }
-        }   
-
-        return deadlocks;
-    }
-
-    function displayDeadlocks(rawText) {
-        const deadlockedPairs = detectDeadlocks(rawText);
-        if (deadlockedPairs.length > 0) {
-            let html = '<h2>⚠️ Java Deadlocks Detected</h2><ul>';
-            deadlockedPairs.forEach(pair => {
-            html += `<li><strong>${pair.join('</strong> ↔ <strong>')}</strong></li>`;
-            });
-            html += '</ul>';
-
-            const deadlockSection = document.createElement('div');
-            deadlockSection.id = 'DEADLOCK_DIV';
-            deadlockSection.innerHTML = html;
-            document.getElementById('OUTPUT_DIV').appendChild(deadlockSection);
-        }
-    }
-
-    const rawTextForDeadlocks = document.getElementById('TEXTAREA')?.value;
-    if (rawTextForDeadlocks) {
-        displayDeadlocks(rawTextForDeadlocks);
-    }
     analyze(text, specialClass, threadStates);
 }
 
@@ -133,25 +79,18 @@ function showDetails(element) {
 
 function analyze(text, specialClass, threadStates) {
     var analyzer = new Analyzer(text, specialClass, threadStates);
-    var highCpuThreads = analyzer.getHighCpuThreads(); // Gets top 10 by default
+    var highCpuThreads = analyzer.getHighCpuThreads(); /
     var highCpuThreadsHtml = analyzer.toHighCpuThreadsHtml(highCpuThreads);
-
-    // Directly set content for HIGH_CPU_THREADS_TABLE
     var highCpuTableElement = document.getElementById("HIGH_CPU_THREADS_TABLE");
     if (highCpuTableElement) {
         highCpuTableElement.innerHTML = highCpuThreadsHtml;
     }
 
-    // Manually control visibility of the container HIGH_CPU_THREADS_DIV
     var highCpuDiv = document.getElementById("HIGH_CPU_THREADS_DIV");
     if (highCpuDiv) {
         highCpuDiv.style.display = (highCpuThreadsHtml && highCpuThreadsHtml.length > 0) ? "block" : "none";
     }
     
-    var deadlockedCycles = analyzer.getDeadlockedThreads();
-    var deadlockedThreadsHtml = analyzer.toDeadlockedThreadsHtml(deadlockedCycles);
-    setHtml("DEADLOCKED_THREADS_TABLE", deadlockedThreadsHtml); // setHtml will manage DEADLOCKED_THREADS_DIV
-
     setHtml("OUTPUT", analyzer.toHtml());
 
     var ignores = analyzer.toIgnoresHtml();
@@ -161,14 +100,7 @@ function analyze(text, specialClass, threadStates) {
     setHtml("SYNCHRONIZERS", synchronizers);
 
 
-    var highCpuThreads = analyzer.getHighCpuThreads(); // Gets top 10 by default
-    console.log("High CPU Consuming Threads:", highCpuThreads.map(t => ({
-        name: t.name,
-        tid: t.tid,
-        cpuTime: t.cpuTime,
-        daemon: t.daemon,
-        state: t.threadState
-    })));
+    var highCpuThreads = analyzer.getHighCpuThreads(); 
 }
 
 // This method is called from HTML so we need to tell ESLint it's not unused
@@ -493,10 +425,6 @@ function Thread(line) {
     var originalLineForCpuCheck = line; 
     match = _extract(/ cpu=([0-9]+\.?[0-9]*)ms?/, line); 
     this.cpuTime = match.value ? parseFloat(match.value) : 0; 
-    
-    if (originalLineForCpuCheck.includes("cpu=")) { 
-        console.log("CPU Parse Check - Line segment:", originalLineForCpuCheck.substring(0, Math.max(originalLineForCpuCheck.indexOf("cpu=") + 20, originalLineForCpuCheck.length)), "Extracted cpuTime:", this.cpuTime, "Raw value:", match.value);
-    }
     line = match.shorterString;
 
     match = _extract(/ (daemon)/, line);
@@ -964,6 +892,21 @@ function Analyzer(text, specialClasses, threadStates) {
         var allFilteredThreads = [];
         var allFilteredThreadsandStacks = [];
         var state = threadStates;
+        const threadNameCounts = getThreadNameCounts(this.threads);
+        asHtml += "<h2>Thread Name Frequency Table/h2>\n";
+        asHtml += '<table border="1" cellpadding="5" cellspacing="0">';
+        asHtml += '<tr><th>Thread Name Pattern</th><th>Count</th><th>Examples</th></tr>';
+        
+        threadNameCounts
+            .sort((a, b) => b.count - a.count)
+            .forEach(({pattern, count, examples}) => {
+                asHtml += '<tr>';
+                asHtml += `<td>${htmlEscape(pattern)}*</td>`;
+                asHtml += `<td>${count}</td>`;
+                asHtml += `<td>${examples.slice(0, 3).map(name => htmlEscape(name)).join('<br>')}${examples.length > 3 ? '<br>...' : ''}</td>`;
+                asHtml += '</tr>';
+            });
+        asHtml += '</table><br>';
 
         // Print special class threads
         if (specialThreadsAndStacks.length > 0) {
@@ -1182,7 +1125,7 @@ function Analyzer(text, specialClasses, threadStates) {
 }
 Analyzer.prototype.toHighCpuThreadsHtml = function(highCpuThreads) {
     if (!highCpuThreads || highCpuThreads.length === 0) {
-        return ""; // Return empty string if no high CPU threads
+        return ""; 
     }
 
     let html = '<table class="table table-bordered table-striped table-sm">'; // Added some Bootstrap classes for styling
@@ -1204,147 +1147,11 @@ Analyzer.prototype.toHighCpuThreadsHtml = function(highCpuThreads) {
 };
 
 Analyzer.prototype.getHighCpuThreads = function(topN = 10) {
-    console.log("All threads before CPU filtering:", this.threads.map(t => ({ name: t.name, tid: t.tid, cpuTime: t.cpuTime })));
-    const threadsWithCpuTime = this.threads.filter(thread => thread.cpuTime && thread.cpuTime > 0);
+    const threadsWithCpuTime = this.threads.filter(thread => thread.cpuTime && thread.cpuTime > 0 && !thread.daemon && thread.threadState === 'RUNNABLE');
     threadsWithCpuTime.sort((a, b) => b.cpuTime - a.cpuTime);
     return threadsWithCpuTime.slice(0, topN); 
 };
 
-
-Analyzer.prototype.getDeadlockedThreads = function() {
-    const threads = this.threads;
-    const synchronizerById = this._synchronizerById;
-    const adj = new Map(); 
-    const threadMap = new Map(); 
-
-    console.log("Deadlock Detection: All Synchronizers (_synchronizerById):", JSON.parse(JSON.stringify(synchronizerById, (key, value) => {
-        if (key === 'lockHolder' && value) return value.name + " (tid:" + value.tid + ")"; // Avoid circular JSON issues
-        if (key === 'lockWaiters' && value) return value.map(t => t.name + " (tid:" + t.tid + ")");
-        if (key === 'notificationWaiters' && value) return value.map(t => t.name + " (tid:" + t.tid + ")");
-        return value;
-    })));
-
-    console.log("Deadlock Detection: All Threads (for wantToAcquire & locksHeld):", threads.map(t => ({
-        name: t.name,
-        tid: t.tid,
-        wantToAcquire: t.wantToAcquire,
-        locksHeld: t.locksHeld,
-        synchronizerClasses: t.synchronizerClasses
-    })));
-
-
-    threads.forEach(thread => {
-        threadMap.set(thread.tid, thread);
-        if (thread.wantToAcquire) {
-            const lockId = thread.wantToAcquire;
-            const synchronizer = synchronizerById[lockId];
-
-            console.log(`Deadlock Detection: Thread "${thread.name}" (tid: ${thread.tid}) wants lock ${lockId}.`);
-            if (synchronizer) {
-                console.log(`Deadlock Detection: Synchronizer ${lockId} found. Class: ${synchronizer._className}, Holder: ${synchronizer.lockHolder ? synchronizer.lockHolder.name + " (tid:" + synchronizer.lockHolder.tid + ")" : 'None'}`);
-                if (synchronizer.lockHolder) {
-                    adj.set(thread.tid, synchronizer.lockHolder.tid);
-                    console.log(`Deadlock Detection: Added edge from ${thread.name} (tid: ${thread.tid}) -> ${synchronizer.lockHolder.name} (tid: ${synchronizer.lockHolder.tid})`);
-                } else {
-                    console.log(`Deadlock Detection: Lock ${lockId} wanted by "${thread.name}" has no holder according to synchronizerById.`);
-                }
-            } else {
-                console.log(`Deadlock Detection: Lock ${lockId} wanted by "${thread.name}" not found in synchronizerById.`);
-            }
-
-        }
-    });
-
-    console.log("Deadlock Detection: Adjacency List (adj):", adj);
-
-    const cycles = [];
-
-    const visited = new Set();
-    const recursionStack = new Set();
-
-    function findCyclesRecursive(uTid, currentPath) {
-        visited.add(uTid);
-        recursionStack.add(uTid);
-        currentPath.push(threadMap.get(uTid));
-
-        if (adj.has(uTid)) {
-            const vTid = adj.get(uTid);
-            if (recursionStack.has(vTid)) { // Cycle detected
-                const cycleStartIndex = currentPath.findIndex(thread => thread.tid === vTid);
-                if (cycleStartIndex !== -1) {
-                    const cycle = currentPath.slice(cycleStartIndex);
-                    const isDuplicate = cycles.some(existingCycle => {
-                        if (existingCycle.length !== cycle.length) return false;
-                        const firstId = cycle[0].tid;
-                        const startInExisting = existingCycle.findIndex(t => t.tid === firstId);
-                        if (startInExisting === -1) return false;
-                        for (let i = 0; i < cycle.length; i++) {
-                            if (cycle[i].tid !== existingCycle[(startInExisting + i) % existingCycle.length].tid) {
-                                return false;
-                            }
-                        }
-                        return true;
-                    });
-                    if (!isDuplicate) {
-                        cycles.push(cycle);
-                    }
-                }
-            } else if (!visited.has(vTid)) {
-                findCyclesRecursive(vTid, currentPath);
-            }
-        }
-        currentPath.pop();
-        recursionStack.delete(uTid);
-    }
-
-    threads.forEach(thread => {
-        if (!visited.has(thread.tid)) {
-            findCyclesRecursive(thread.tid, []);
-        }
-    });
-    return cycles;
-};
-
-Analyzer.prototype.toDeadlockedThreadsHtml = function(deadlockedCycles) {
-    if (!deadlockedCycles || deadlockedCycles.length === 0) {
-        return "";
-    }
-
-    let html = '<div class="mt-3">'; 
-    deadlockedCycles.forEach((cycle, index) => {
-        html += `<h4>Deadlock Cycle ${index + 1}</h4>`;
-        html += '<table class="table table-bordered table-sm table-hover">'; 
-        html += '<thead class="thead-light"><tr><th>Thread Name (TID)</th><th>Waiting for Lock (ID)</th><th>Lock Class</th><th>Currently Holding Locks (IDs with Class)</th></tr></thead>';
-        html += '<tbody>';
-
-        cycle.forEach(thread => {
-            html += '<tr>';
-            html += `<td>${htmlEscape(thread.name)} (${htmlEscape(thread.tid)})</td>`;
-            
-            const waitingForLockId = thread.wantToAcquire;
-            const waitingForLockClass = waitingForLockId && thread.synchronizerClasses[waitingForLockId] 
-                                      ? htmlEscape(thread.synchronizerClasses[waitingForLockId]) 
-                                      : (waitingForLockId ? 'N/A' : 'N/A');
-            html += `<td>${waitingForLockId ? htmlEscape(waitingForLockId) : 'N/A'}</td>`;
-            html += `<td>${waitingForLockClass}</td>`;
-
-            const holdingLocksStr = thread.locksHeld.length > 0 
-                ? thread.locksHeld.map(lockId => {
-                    const lockClass = thread.synchronizerClasses[lockId] || 'N/A';
-                    return `${htmlEscape(lockId)} <small class="text-muted">(${htmlEscape(lockClass)})</small>`;
-                  }).join('<br>') 
-                : 'None';
-            html += `<td>${holdingLocksStr}</td>`;
-            html += '</tr>';
-        });
-        html += '</tbody></table>';
-        if (index < deadlockedCycles.length - 1) {
-            html += '<hr>';
-        }
-    });
-    html += '</div>';
-    return html;
-};
 
 function openThreadsInStateWindow(state, threadsInState) {
     var newWindow = window.open("", "_blank");
@@ -1492,17 +1299,23 @@ function createBarChart(stackTraceData) {
                     document.body.setAttribute('chart-done-stackTraceChart', 'true');
                     checkAllChartsDone();
                 }
+            },
+            onClick: function(evt, elements) {
+                if (elements.length > 0) {
+                    const chart = elements[0].element.$context.chart;
+                    const index = elements[0].index;
+                    const label = chart.data.labels[index];
+                    const stackLines = stackTraceData.actualStackTraces[label];
+                    if (stackLines) {
+                        const html = `<pre>${stackLines.join('\n')}</pre>`;
+                        const win = window.open('', '_blank');
+                        win.document.write(html);
+                        win.document.close();
+                    }
+                }
             }
         }
     });
-    let html = `<html><head><title>Identical Stack Traces</title></head><body>`;
-    html += `<h2>Identical Stack Traces</h2>`;
-    Object.entries(stackTraceData.actualStackTraces).forEach(([label, stackLines]) => {
-        html += `<h4>${label}</h4>`;
-        html += `<pre style="background:#f4f4f4; padding:1em; border-radius:5px;">${stackLines.join('\n')}</pre>`;
-    });
-    html += `</body></html>`;
-    window.stackTraceHTML = html;
 }
 
 function createDaemonChart(threads) {
@@ -1552,34 +1365,27 @@ function createDaemonChart(threads) {
                     document.body.setAttribute('chart-done-daemonDonughtChart', 'true');
                     checkAllChartsDone();
                 }
+            },
+            onClick: function(evt, elements) {
+                if (elements.length > 0) {
+                    const chart = elements[0].element.$context.chart;
+                    const index = elements[0].index;
+                    let threadList = [];
+                    if (index === 0) {
+                        threadList = daemonThreads;
+                    } else if (index === 1) {
+                        threadList = nonDaemonThreads;
+                    }
+                    if (threadList.length > 0) {
+                        const html = `<pre>${threadList.map(t => t.name).join('\n')}</pre>`;
+                        const win = window.open('', '_blank');
+                        win.document.write(html);
+                        win.document.close();
+                    }
+                }
             }
         }
     });
-    
-    // function renderThreadTable(containerId, threadList) {
-    //     if (threadList.length === 0) {
-    //         document.getElementById(containerId + "_DIV").style.display = "none";
-    //         return;
-    //     }
-
-    //     let html = '<table class="table table-bordered table-striped table-sm">';
-    //     html += '<thead><tr><th>Name</th><th>State</th><th>CPU Time (ms)</th></tr></thead><tbody>';
-
-    //     threadList.forEach(thread => {
-    //         html += '<tr>';
-    //         html += `<td>${htmlEscape(thread.name)}</td>`;
-    //         html += `<td>${htmlEscape(thread.threadState || 'N/A')}</td>`;
-    //         html += `<td>${thread.cpuTime || 0}</td>`;
-    //         html += '</tr>';
-    //     });
-
-    //     html += '</tbody></table>';
-    //     document.getElementById(containerId + "_TABLE").innerHTML = html;
-    //     document.getElementById(containerId + "_DIV").style.display = "block";
-    // }
-
-    // renderThreadTable("DAEMON_THREADS", daemonThreads);
-    // renderThreadTable("NON_DAEMON_THREADS", nonDaemonThreads);
 }
 
 function checkAllChartsDone() {
@@ -1588,5 +1394,27 @@ function checkAllChartsDone() {
     if (allDone) {
         document.body.setAttribute('charts-render-complete', 'true');
     }
+}
+
+function getThreadNameCounts(threads) {
+    const nameCounts = {};
+    const patternMap = new Map();
+    threads.forEach(thread => {
+        const name = thread.name;
+        const basePattern = name.split(/\d+/)[0].trim();
+        if (nameCounts[basePattern]) {
+            nameCounts[basePattern]++;
+            patternMap.get(basePattern).push(name);
+        } else {
+            nameCounts[basePattern] = 1;
+            patternMap.set(basePattern, [name]);
+        }
+    });
+    const result = Object.entries(nameCounts).map(([pattern, count]) => ({
+        pattern,
+        count,
+        examples: patternMap.get(pattern)
+    }));
+    return result;
 }
 

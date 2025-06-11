@@ -22,13 +22,11 @@ FILES_DIR.mkdir(exist_ok=True)
 HEAP_DIR.mkdir(exist_ok=True)
 JMAP_DIR.mkdir(exist_ok=True)
 THREAD_DIR.mkdir(exist_ok=True)
-
 NODE_CMD = "node"
 HEAP_SCRIPT = "./script.sh"
 THREAD_JS = REPORT_DIR / "runner.js"
 
 email_flag = 0
-
 _default = os.getenv("EMAIL_TO", "")
 user_in = input("📧 Enter recipient email(s) (comma-separated): ").strip()
 if user_in:
@@ -39,10 +37,7 @@ else:
     print("No recipients configured. Mailing won't be enabled")
     email_flag = 1
 
-# ✅ Thread pool executor (global)
 executor = ThreadPoolExecutor(max_workers=4)
-
-
 def get_latest_heap_pdf_folder(base_path="."):
     workflow_dirs = sorted(
         Path(base_path).glob("files/heapdumps/hprof_workflow_*"),
