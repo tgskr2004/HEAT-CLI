@@ -79,7 +79,7 @@ function showDetails(element) {
 
 function analyze(text, specialClass, threadStates) {
     var analyzer = new Analyzer(text, specialClass, threadStates);
-    var highCpuThreads = analyzer.getHighCpuThreads(); /
+    var highCpuThreads = analyzer.getHighCpuThreads(); 
     var highCpuThreadsHtml = analyzer.toHighCpuThreadsHtml(highCpuThreads);
     var highCpuTableElement = document.getElementById("HIGH_CPU_THREADS_TABLE");
     if (highCpuTableElement) {
