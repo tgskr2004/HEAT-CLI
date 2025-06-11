@@ -62,7 +62,7 @@ def process_heap_file(hprof_path):
         subprocess.run(["bash", HEAP_SCRIPT, str(hprof_path)], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
         latest_pdf_folder = get_latest_heap_pdf_folder()
         if latest_pdf_folder:
-            if email_flag == 1:
+            if email_flag == 0:
                 print("📤 Mailing the Heap Dump Report...")
                 send_report_email(
                     recipient=RECIPIENTS[0],
@@ -88,7 +88,7 @@ def process_thread_file(txt_path):
     except subprocess.CalledProcessError as e:
         print(f"❌ Error generating PDF for thread dump: {txt_path.name}: {e}")
         return
-    if email_flag == 1:
+    if email_flag == 0:
         try:
             print("📤 Mailing the Jstack Thread Dump Report...")
             attachments = [str(pdf_path)]
@@ -115,7 +115,7 @@ def process_jmap_file(jmap_path):
     except subprocess.CalledProcessError as e:
         print(f"❌ Error generating PDF for JMAP file: {jmap_path.name}: {e}")
         return
-    if email_flag == 1:
+    if email_flag == 0:
         try:
             print("📤 Mailing the JMAP Report...")
             send_report_email(

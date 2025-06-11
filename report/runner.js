@@ -149,9 +149,7 @@ async function generatePDF(inputPath, outputPdfPath) {
       await stackPage.close();
       fs.unlinkSync(stackHtmlPath);
       console.log(`✅ Stack trace report saved: ${stackPdfPath}`);
-    } else {
-      console.warn('⚠️ No stack trace HTML found.');
-    }
+    } 
   } catch (error) {
     console.error('❌ Error generating PDF:', error);
     throw error;
