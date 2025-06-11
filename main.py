@@ -79,6 +79,8 @@ def process_heap_file(hprof_path):
 
 def process_thread_file(txt_path):
     pdf_path = txt_path.with_suffix(".pdf")
+    stack_pdf_path = txt_path.with_name(txt_path.stem + "_stack_report.pdf")  # 👈 Add this
+
     print(f"🧵 New thread dump (.txt) detected: {txt_path.name}")
     try:
         subprocess.run([NODE_CMD, str(THREAD_JS), str(txt_path), str(pdf_path)], check=True)
@@ -88,11 +90,15 @@ def process_thread_file(txt_path):
 
     try:
         print("📤 Mailing the Jstack Thread Dump Report...")
+        attachments = [str(pdf_path)]
+        if stack_pdf_path.exists():
+            attachments.append(str(stack_pdf_path))  # 👈 Add stack trace PDF if it exists
+
         send_report_email(
             recipient=RECIPIENTS[0],
             subject=f"Thread Dump Report: {pdf_path.name}",
             body=f"Attached is the thread dump report for {txt_path.name}",
-            pdf_paths=[str(pdf_path)],
+            pdf_paths=attachments,
             report_type="thread"
         )
     except Exception as exc:

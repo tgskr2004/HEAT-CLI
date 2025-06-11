@@ -130,8 +130,28 @@ async function generatePDF(inputPath, outputPdfPath) {
       printBackground: true,
       margin: { top: '20px', right: '20px', bottom: '20px', left: '20px' }
     });
-
     console.log(`✅ PDF successfully generated at ${outputPdfPath}`);
+    const stackHtmlPath = outputPdfPath.replace(/\.pdf$/, '_stack_report.html');
+    const stackPdfPath = outputPdfPath.replace(/\.pdf$/, '_stack_report.pdf');
+
+    const stackHtml = await page.evaluate(() => window.stackTraceHTML);
+    if (stackHtml) {
+      fs.writeFileSync(stackHtmlPath, stackHtml, 'utf8');
+
+      const stackPage = await browser.newPage();
+      await stackPage.goto(`file://${stackHtmlPath}`, { waitUntil: 'networkidle0' });
+      await stackPage.pdf({
+        path: stackPdfPath,
+        format: 'A4',
+        printBackground: true,
+        margin: { top: '20px', bottom: '20px', left: '20px', right: '20px' },
+      });
+      await stackPage.close();
+      fs.unlinkSync(stackHtmlPath);
+      console.log(`✅ Stack trace report saved: ${stackPdfPath}`);
+    } else {
+      console.warn('⚠️ No stack trace HTML found.');
+    }
   } catch (error) {
     console.error('❌ Error generating PDF:', error);
     throw error;

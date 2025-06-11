@@ -1495,16 +1495,14 @@ function createBarChart(stackTraceData) {
             }
         }
     });
-    let html = `<hr/><h2>Identical Stack Traces</h2>`;
+    let html = `<html><head><title>Identical Stack Traces</title></head><body>`;
+    html += `<h2>Identical Stack Traces</h2>`;
     Object.entries(stackTraceData.actualStackTraces).forEach(([label, stackLines]) => {
         html += `<h4>${label}</h4>`;
         html += `<pre style="background:#f4f4f4; padding:1em; border-radius:5px;">${stackLines.join('\n')}</pre>`;
     });
-
-    const section = document.createElement('div');
-    section.innerHTML = html;
-    section.id = "STACK_TRACE_SECTION";
-    document.getElementById('OUTPUT_DIV').appendChild(section);
+    html += `</body></html>`;
+    window.stackTraceHTML = html;
 }
 
 function createDaemonChart(threads) {
