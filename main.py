@@ -6,6 +6,8 @@ from pathlib import Path
 from dotenv import load_dotenv
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
+from concurrent.futures import ThreadPoolExecutor
+
 from mailer import send_report_email
 
 load_dotenv()
@@ -25,6 +27,8 @@ NODE_CMD = "node"
 HEAP_SCRIPT = "./script.sh"
 THREAD_JS = REPORT_DIR / "runner.js"
 
+email_flag = 0
+
 _default = os.getenv("EMAIL_TO", "")
 user_in = input("📧 Enter recipient email(s) (comma-separated): ").strip()
 if user_in:
@@ -33,7 +37,11 @@ elif _default:
     RECIPIENTS = [e.strip() for e in _default.split(",") if e.strip()]
 else:
     print("❌ No recipients configured. Exiting.")
-    sys.exit(1)
+    email_flag = 1
+
+# ✅ Thread pool executor (global)
+executor = ThreadPoolExecutor(max_workers=4)
+
 
 def get_latest_heap_pdf_folder(base_path="."):
     workflow_dirs = sorted(
@@ -47,102 +55,101 @@ def get_latest_heap_pdf_folder(base_path="."):
             return pdf_dir
     return None
 
+
+def process_heap_file(hprof_path):
+    print(f"📦 New heap dump (.hprof) file detected: {hprof_path.name}")
+    try:
+        subprocess.run(["bash", HEAP_SCRIPT, str(hprof_path)], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
+        latest_pdf_folder = get_latest_heap_pdf_folder()
+        if latest_pdf_folder:
+            print("📤 Mailing the Heap Dump Report...")
+            send_report_email(
+                recipient=RECIPIENTS[0],
+                subject=f"Heap Dump Report: {hprof_path.name}",
+                body=f"Heap dump report for {hprof_path.name} attached below",
+                pdf_paths=list(latest_pdf_folder.glob("*.pdf")),
+                report_type="heap"
+            )
+        else:
+            print("❌ No PDF folder found after processing heap dump.")
+    except subprocess.CalledProcessError as e:
+        print(f"❌ Error during heap dump processing: {e}")
+    print(f"✅ Done with heap dump: {hprof_path.name}\n")
+
+
+def process_thread_file(txt_path):
+    pdf_path = txt_path.with_suffix(".pdf")
+    print(f"🧵 New thread dump (.txt) detected: {txt_path.name}")
+    try:
+        subprocess.run([NODE_CMD, str(THREAD_JS), str(txt_path), str(pdf_path)], check=True)
+    except subprocess.CalledProcessError as e:
+        print(f"❌ Error generating PDF for thread dump: {txt_path.name}: {e}")
+        return
+
+    try:
+        print("📤 Mailing the Jstack Thread Dump Report...")
+        send_report_email(
+            recipient=RECIPIENTS[0],
+            subject=f"Thread Dump Report: {pdf_path.name}",
+            body=f"Attached is the thread dump report for {txt_path.name}",
+            pdf_paths=[str(pdf_path)],
+            report_type="thread"
+        )
+    except Exception as exc:
+        print(f"❌ Email error for thread dump: {exc}")
+    print(f"✅ Done with thread dump: {txt_path.name}\n")
+
+
+def process_jmap_file(jmap_path):
+    pdf_path = jmap_path.with_suffix(".pdf")
+    print(f"📊 New JMAP file detected: {jmap_path.name}")
+    try:
+        subprocess.run([NODE_CMD, str(THREAD_JS), str(jmap_path), str(pdf_path)], check=True)
+    except subprocess.CalledProcessError as e:
+        print(f"❌ Error generating PDF for JMAP file: {jmap_path.name}: {e}")
+        return
+
+    try:
+        print("📤 Mailing the JMAP Report...")
+        send_report_email(
+            recipient=RECIPIENTS[0],
+            subject=f"JMAP Heap Report: {pdf_path.name}",
+            body=f"The heap usage report from JMAP file: {jmap_path.name} attached below",
+            pdf_paths=[str(pdf_path)],
+            report_type="jmap"
+        )
+    except Exception as exc:
+        print(f"❌ Email error for JMAP file: {exc}")
+    print(f"✅ Done with JMAP file: {jmap_path.name}\n")
+
+
+# 👀 Watcher Handlers
 class HeapHandler(FileSystemEventHandler):
     def on_created(self, event):
         if event.is_directory or not event.src_path.endswith(".hprof"):
             return
+        executor.submit(process_heap_file, Path(event.src_path))
 
-        hprof_path = Path(event.src_path)
-        print(f"New heap dump (.hprof) file detected: {hprof_path.name}")
-
-        try:
-            subprocess.run(["bash", HEAP_SCRIPT, str(hprof_path)], check=True)
-            latest_pdf_folder = get_latest_heap_pdf_folder()
-            if latest_pdf_folder:
-                print("Mailing the Heap Dump Report...")
-                send_report_email(
-                    recipient=RECIPIENTS[0],
-                    subject=f"Heap Dump Report: {hprof_path.name}",
-                    body=f"heap dump report for {hprof_path.name} attached below",
-                    pdf_paths=list(latest_pdf_folder.glob("*.pdf")),
-                    report_type="heap"
-                )
-                
-            else:
-                print("❌ No PDF folder found after processing heap dump.")
-        except subprocess.CalledProcessError as e:
-            print(f"❌ Error during heap dump processing: {e}")
-        print(f"✅ Done with heap dump: {hprof_path.name}\n")
 
 class ThreadHandler(FileSystemEventHandler):
     def on_created(self, event):
         if event.is_directory or not event.src_path.endswith(".txt"):
             return
+        executor.submit(process_thread_file, Path(event.src_path))
 
-        txt_path = Path(event.src_path)
-        pdf_path = txt_path.with_suffix(".pdf")
-
-        print(f"🧵 New thread dump (.txt) detected: {txt_path.name}")
-        try:
-            subprocess.run(
-                [NODE_CMD, str(THREAD_JS), str(txt_path), str(pdf_path)],
-                check=True
-            )
-        except subprocess.CalledProcessError as e:
-            print(f"❌ Error generating PDF for thread dump: {txt_path.name}: {e}")
-            return
-
-        try:
-            print("Mailing the Jstack Thread Dump Report...")
-            send_report_email(
-                recipient=RECIPIENTS[0],
-                subject=f"Thread Dump Report: {pdf_path.name}",
-                body=f"Attached is the thread dump report for {txt_path.name}",
-                pdf_paths=[str(pdf_path)],
-                report_type="thread"
-            )
-            
-        except Exception as exc:
-            print(f"❌ Email error for thread dump: {exc}")
-        print(f"✅ Done with thread dump: {txt_path.name}\n")
 
 class JmapHandler(FileSystemEventHandler):
     def on_created(self, event):
         if event.is_directory or not event.src_path.endswith(".txt"):
             return
+        executor.submit(process_jmap_file, Path(event.src_path))
 
-        jmap_path = Path(event.src_path)
-        pdf_path = jmap_path.with_suffix(".pdf")
-
-        print(f"📊 New JMAP file detected: {jmap_path.name}")
-        try:
-            subprocess.run(
-                [NODE_CMD, str(THREAD_JS), str(jmap_path), str(pdf_path)],
-                check=True
-            )
-        except subprocess.CalledProcessError as e:
-            print(f"❌ Error generating PDF for JMAP file: {jmap_path.name}: {e}")
-            return
-
-        try:
-            print("Mailing the JMAP Report...")
-            send_report_email(
-                recipient=RECIPIENTS[0],
-                subject=f"JMAP Heap Report: {pdf_path.name}",
-                body=f"The heap usage report from JMAP file: {jmap_path.name} attached below",
-                pdf_paths=[str(pdf_path)],
-                report_type="jmap"
-            )
-        except Exception as exc:
-            print(f"❌ Email error for JMAP file: {exc}")
-        print(f"✅ Done with JMAP file: {jmap_path.name}\n")
 
 if __name__ == "__main__":
-    print("👀 Watching the following folders:")
-    print(f"   📦 HEAP:   {HEAP_DIR}")
-    print(f"   🧵 JSTACK: {THREAD_DIR}")
-    print(f"   📊 JMAP:   {JMAP_DIR}")
-
+    print("📡 Watching folders:")
+    print(f"   HEAP:   {HEAP_DIR}")
+    print(f"   JSTACK: {THREAD_DIR}")
+    print(f"   JMAP:   {JMAP_DIR}")
     observer = Observer()
     observer.schedule(HeapHandler(), str(HEAP_DIR), recursive=False)
     observer.schedule(ThreadHandler(), str(THREAD_DIR), recursive=False)
@@ -154,4 +161,6 @@ if __name__ == "__main__":
             time.sleep(1)
     except KeyboardInterrupt:
         observer.stop()
+    finally:
+        executor.shutdown(wait=True)
     observer.join()

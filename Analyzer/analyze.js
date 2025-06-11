@@ -31,6 +31,58 @@ function analyzeTextfield() {
     console.log(threadStates);
 
     var text = document.getElementById("TEXTAREA").value;
+    function detectDeadlocks(rawText) {
+        const lines = rawText.split('\n');
+        const deadlocks = [];
+        let inDeadlockBlock = false;
+        let currentThreads = [];
+
+        for (let i = 0; i < lines.length; i++) {
+            const line = lines[i].trim();
+            if (line.includes("Found one Java-level deadlock")) {
+            inDeadlockBlock = true;
+            continue;
+            }
+
+            if (inDeadlockBlock) {
+                if (line.startsWith('"')) {
+                    const threadMatch = line.match(/^"(.+?)"/);
+                    if (threadMatch) {
+                    currentThreads.push(threadMatch[1]);
+                    }
+                } else if (line === "") {
+                    if (currentThreads.length >= 2) {
+                        deadlocks.push([...currentThreads]);
+                    }
+                    inDeadlockBlock = false;
+                    currentThreads = [];
+                }
+            }
+        }   
+
+        return deadlocks;
+    }
+
+    function displayDeadlocks(rawText) {
+        const deadlockedPairs = detectDeadlocks(rawText);
+        if (deadlockedPairs.length > 0) {
+            let html = '<h2>⚠️ Java Deadlocks Detected</h2><ul>';
+            deadlockedPairs.forEach(pair => {
+            html += `<li><strong>${pair.join('</strong> ↔ <strong>')}</strong></li>`;
+            });
+            html += '</ul>';
+
+            const deadlockSection = document.createElement('div');
+            deadlockSection.id = 'DEADLOCK_DIV';
+            deadlockSection.innerHTML = html;
+            document.getElementById('OUTPUT_DIV').appendChild(deadlockSection);
+        }
+    }
+
+    const rawTextForDeadlocks = document.getElementById('TEXTAREA')?.value;
+    if (rawTextForDeadlocks) {
+        displayDeadlocks(rawTextForDeadlocks);
+    }
     analyze(text, specialClass, threadStates);
 }
 
@@ -439,9 +491,7 @@ function Thread(line) {
     line = match.shorterString;
     
     var originalLineForCpuCheck = line; 
-    // Corrected regex: looks for "cpu=", captures digits with an optional decimal part, and expects "ms"
     match = _extract(/ cpu=([0-9]+\.?[0-9]*)ms?/, line); 
-    // Use parseFloat for decimal values, default to 0 if not found or not a number
     this.cpuTime = match.value ? parseFloat(match.value) : 0; 
     
     if (originalLineForCpuCheck.includes("cpu=")) { 
@@ -1201,11 +1251,7 @@ Analyzer.prototype.getDeadlockedThreads = function() {
             } else {
                 console.log(`Deadlock Detection: Lock ${lockId} wanted by "${thread.name}" not found in synchronizerById.`);
             }
-            
-            // Original line:
-            // if (synchronizer && synchronizer.lockHolder) {
-            //     adj.set(thread.tid, synchronizer.lockHolder.tid);
-            // }
+
         }
     });
 
@@ -1512,32 +1558,31 @@ function createDaemonChart(threads) {
         }
     });
     
-    function renderThreadTable(containerId, threadList) {
-        if (threadList.length === 0) {
-            document.getElementById(containerId + "_DIV").style.display = "none";
-            return;
-        }
+    // function renderThreadTable(containerId, threadList) {
+    //     if (threadList.length === 0) {
+    //         document.getElementById(containerId + "_DIV").style.display = "none";
+    //         return;
+    //     }
 
-        let html = '<table class="table table-bordered table-striped table-sm">';
-        html += '<thead><tr><th>Name</th><th>State</th><th>CPU Time (ms)</th></tr></thead><tbody>';
+    //     let html = '<table class="table table-bordered table-striped table-sm">';
+    //     html += '<thead><tr><th>Name</th><th>State</th><th>CPU Time (ms)</th></tr></thead><tbody>';
 
-        threadList.forEach(thread => {
-            html += '<tr>';
-            html += `<td>${htmlEscape(thread.name)}</td>`;
-            html += `<td>${htmlEscape(thread.threadState || 'N/A')}</td>`;
-            html += `<td>${thread.cpuTime || 0}</td>`;
-            html += '</tr>';
-        });
+    //     threadList.forEach(thread => {
+    //         html += '<tr>';
+    //         html += `<td>${htmlEscape(thread.name)}</td>`;
+    //         html += `<td>${htmlEscape(thread.threadState || 'N/A')}</td>`;
+    //         html += `<td>${thread.cpuTime || 0}</td>`;
+    //         html += '</tr>';
+    //     });
 
-        html += '</tbody></table>';
-        document.getElementById(containerId + "_TABLE").innerHTML = html;
-        document.getElementById(containerId + "_DIV").style.display = "block";
-    }
+    //     html += '</tbody></table>';
+    //     document.getElementById(containerId + "_TABLE").innerHTML = html;
+    //     document.getElementById(containerId + "_DIV").style.display = "block";
+    // }
 
-    renderThreadTable("DAEMON_THREADS", daemonThreads);
-    renderThreadTable("NON_DAEMON_THREADS", nonDaemonThreads);
+    // renderThreadTable("DAEMON_THREADS", daemonThreads);
+    // renderThreadTable("NON_DAEMON_THREADS", nonDaemonThreads);
 }
-
 
 function checkAllChartsDone() {
     const allDone = ['chart-done-threadStateChart', 'chart-done-stackTraceChart', 'chart-done-daemonDonughtChart']
@@ -1546,3 +1591,4 @@ function checkAllChartsDone() {
         document.body.setAttribute('charts-render-complete', 'true');
     }
 }
+

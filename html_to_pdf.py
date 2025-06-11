@@ -45,10 +45,10 @@ def get_expand_all_sections_js() -> str: #deals with hidden divs that appear on 
 def convert_all_html_to_pdf(input_dir: Path, output_dir: Path, timeout_ms: int = 30000):
     html_paths = list(input_dir.rglob('*.html'))
     if not html_paths:
-        print(f"[!] No HTML files found under {input_dir.resolve()}", file=sys.stderr)
+        print(f"No HTML files found under {input_dir.resolve()}", file=sys.stderr)
         return
 
-    print(f"[+] Found {len(html_paths)} HTML file(s) under {input_dir.resolve()}")
+    # print(f"[+] Found {len(html_paths)} HTML file(s) under {input_dir.resolve()}")
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True)
         used_names = set()
@@ -64,7 +64,7 @@ def convert_all_html_to_pdf(input_dir: Path, output_dir: Path, timeout_ms: int =
 
             out_pdf.parent.mkdir(parents=True, exist_ok=True)
             file_url = html_path.resolve().as_uri()
-            print(f"  → Converting:\n      {html_path}\n     → {out_pdf}", end=" … ")
+            # print(f"  → Converting:\n      {html_path}\n     → {out_pdf}", end=" … ")
 
             try:
                 page = browser.new_page(viewport={"width": 1280, "height": 800})
@@ -79,14 +79,14 @@ def convert_all_html_to_pdf(input_dir: Path, output_dir: Path, timeout_ms: int =
                     scale=1.0
                 )
                 page.close()
-                print("Done.")
+                # print("Done.")
             except PlaywrightTimeoutError:
                 print("✒ Timeout loading page (skipped).")
             except Exception as e:
                 print(f"✒ Error: {e}")
 
         browser.close()
-    print("[+] All done.")
+    # print("Completed")
 
 def extract_pdf_order_from_toc_html(toc_html_path: Path) -> list[str]:
     with open(toc_html_path, "r", encoding="utf-8") as f:
@@ -123,7 +123,7 @@ def merge_pdfs_by_toc_html(toc_html_path: Path, pdf_dir: Path, output_pdf: Path)
 
     merger.write(str(output_pdf))
     merger.close()
-    print(f"[✓] Final merged PDF written to: {output_pdf}")
+    print(f"[✓] Complete heap dump report written to: {output_pdf}")
 
 def main():
     parser = argparse.ArgumentParser(description="Convert HTML to flat-structured PDFs (no folders) with links preserved.")
@@ -137,7 +137,7 @@ def main():
     output_dir = args.output_dir.expanduser().resolve()
 
     if not input_dir.is_dir():
-        print(f"[!] ERROR: input_dir {input_dir} is not a directory.", file=sys.stderr)
+        print(f"ERROR: input_dir {input_dir} is not a directory.", file=sys.stderr)
         sys.exit(1)
 
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -145,7 +145,6 @@ def main():
 
     if args.merge_pdf:
         if not args.toc_html:
-            print("[!] --toc_html must be specified when using --merge_pdf", file=sys.stderr)
             sys.exit(1)
         merge_pdfs_by_toc_html(args.toc_html.resolve(), output_dir, output_dir / "Complete_Report.pdf")
 

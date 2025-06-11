@@ -26,7 +26,7 @@ WORKDIR="$(pwd)/files/heapdumps/hprof_workflow_${TIMESTAMP}"
 mkdir -p "$WORKDIR"
 echo "→ Working directory will be: $WORKDIR"
 
-echo ">>> Step 1: Running ParseHeapDump.sh on '$HPROF_FILE'…"
+echo ">>> Running ParseHeapDump.sh on '$HPROF_FILE'…"
 "${HEAP_TOOL_DIR}/ParseHeapDump.sh" "$HPROF_FILE" \
     org.eclipse.mat.api:suspects \
     -vmargs "$VMARGS"
@@ -40,13 +40,13 @@ if [[ ! -f "$SUSPECT_ZIP" ]]; then
   exit 1
 fi
 
-echo ">>> Step 2: Extracting '$SUSPECT_ZIP'…"
+# echo ">>> Step 2: Extracting '$SUSPECT_ZIP'…"
 LEAK_HTML_DIR="$WORKDIR/leak-suspects"
 mkdir -p "$LEAK_HTML_DIR"
 unzip -q "$SUSPECT_ZIP" -d "$LEAK_HTML_DIR"
 echo "    → HTML folder ready at: $LEAK_HTML_DIR"
 
-echo ">>> Step 3: Converting all HTML under '$LEAK_HTML_DIR' to PDFs…"
+# echo ">>> Step 3: Converting all HTML under '$LEAK_HTML_DIR' to PDFs…"
 PDF_OUTDIR="$WORKDIR/Report_PDFs"
 mkdir -p "$PDF_OUTDIR"
 
@@ -65,7 +65,7 @@ else
 fi
 
 
-echo "→ All done!"
-echo "    • Suspects ZIP:     $SUSPECT_ZIP"
-echo "    • Extracted HTML:   $LEAK_HTML_DIR"
-echo "    • PDFs generated:   $PDF_OUTDIR"
+# echo "→ All done!"
+# echo "    • Suspects ZIP:     $SUSPECT_ZIP"
+# echo "    • Extracted HTML:   $LEAK_HTML_DIR"
+# echo "    • PDFs generated:   $PDF_OUTDIR"
