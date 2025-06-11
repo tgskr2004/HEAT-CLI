@@ -36,7 +36,7 @@ if user_in:
 elif _default:
     RECIPIENTS = [e.strip() for e in _default.split(",") if e.strip()]
 else:
-    print("❌ No recipients configured. Exiting.")
+    print("No recipients configured. Mailing won't be enabled")
     email_flag = 1
 
 # ✅ Thread pool executor (global)
@@ -62,14 +62,15 @@ def process_heap_file(hprof_path):
         subprocess.run(["bash", HEAP_SCRIPT, str(hprof_path)], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
         latest_pdf_folder = get_latest_heap_pdf_folder()
         if latest_pdf_folder:
-            print("📤 Mailing the Heap Dump Report...")
-            send_report_email(
-                recipient=RECIPIENTS[0],
-                subject=f"Heap Dump Report: {hprof_path.name}",
-                body=f"Heap dump report for {hprof_path.name} attached below",
-                pdf_paths=list(latest_pdf_folder.glob("*.pdf")),
-                report_type="heap"
-            )
+            if email_flag == 1:
+                print("📤 Mailing the Heap Dump Report...")
+                send_report_email(
+                    recipient=RECIPIENTS[0],
+                    subject=f"Heap Dump Report: {hprof_path.name}",
+                    body=f"Heap dump report for {hprof_path.name} attached below",
+                    pdf_paths=list(latest_pdf_folder.glob("*.pdf")),
+                    report_type="heap"
+                )
         else:
             print("❌ No PDF folder found after processing heap dump.")
     except subprocess.CalledProcessError as e:
@@ -87,22 +88,22 @@ def process_thread_file(txt_path):
     except subprocess.CalledProcessError as e:
         print(f"❌ Error generating PDF for thread dump: {txt_path.name}: {e}")
         return
+    if email_flag == 1:
+        try:
+            print("📤 Mailing the Jstack Thread Dump Report...")
+            attachments = [str(pdf_path)]
+            if stack_pdf_path.exists():
+                attachments.append(str(stack_pdf_path))  # 👈 Add stack trace PDF if it exists
 
-    try:
-        print("📤 Mailing the Jstack Thread Dump Report...")
-        attachments = [str(pdf_path)]
-        if stack_pdf_path.exists():
-            attachments.append(str(stack_pdf_path))  # 👈 Add stack trace PDF if it exists
-
-        send_report_email(
-            recipient=RECIPIENTS[0],
-            subject=f"Thread Dump Report: {pdf_path.name}",
-            body=f"Attached is the thread dump report for {txt_path.name}",
-            pdf_paths=attachments,
-            report_type="thread"
-        )
-    except Exception as exc:
-        print(f"❌ Email error for thread dump: {exc}")
+            send_report_email(
+                recipient=RECIPIENTS[0],
+                subject=f"Thread Dump Report: {pdf_path.name}",
+                body=f"Attached is the thread dump report for {txt_path.name}",
+                pdf_paths=attachments,
+                report_type="thread"
+            )
+        except Exception as exc:
+            print(f"❌ Email error for thread dump: {exc}")
     print(f"✅ Done with thread dump: {txt_path.name}\n")
 
 
@@ -114,22 +115,21 @@ def process_jmap_file(jmap_path):
     except subprocess.CalledProcessError as e:
         print(f"❌ Error generating PDF for JMAP file: {jmap_path.name}: {e}")
         return
-
-    try:
-        print("📤 Mailing the JMAP Report...")
-        send_report_email(
-            recipient=RECIPIENTS[0],
-            subject=f"JMAP Heap Report: {pdf_path.name}",
-            body=f"The heap usage report from JMAP file: {jmap_path.name} attached below",
-            pdf_paths=[str(pdf_path)],
-            report_type="jmap"
-        )
-    except Exception as exc:
-        print(f"❌ Email error for JMAP file: {exc}")
+    if email_flag == 1:
+        try:
+            print("📤 Mailing the JMAP Report...")
+            send_report_email(
+                recipient=RECIPIENTS[0],
+                subject=f"JMAP Heap Report: {pdf_path.name}",
+                body=f"The heap usage report from JMAP file: {jmap_path.name} attached below",
+                pdf_paths=[str(pdf_path)],
+                report_type="jmap"
+            )
+        except Exception as exc:
+            print(f"❌ Email error for JMAP file: {exc}")
     print(f"✅ Done with JMAP file: {jmap_path.name}\n")
 
 
-# 👀 Watcher Handlers
 class HeapHandler(FileSystemEventHandler):
     def on_created(self, event):
         if event.is_directory or not event.src_path.endswith(".hprof"):
