@@ -893,9 +893,9 @@ function Analyzer(text, specialClasses, threadStates) {
         var allFilteredThreadsandStacks = [];
         var state = threadStates;
         const threadNameCounts = getThreadNameCounts(this.threads);
-        asHtml += "<h2>Thread Name Frequency Table/h2>\n";
+        asHtml += "<h2>Thread Name Frequency</h2>\n";
         asHtml += '<table border="1" cellpadding="5" cellspacing="0">';
-        asHtml += '<tr><th>Thread Name Pattern</th><th>Count</th><th>Examples</th></tr>';
+        asHtml += '<tr><th>Thread Name</th><th>Count</th><th>Examples</th></tr>';
         
         threadNameCounts
             .sort((a, b) => b.count - a.count)

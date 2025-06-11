@@ -75,7 +75,7 @@ def process_heap_file(hprof_path):
 
 def process_thread_file(txt_path):
     pdf_path = txt_path.with_suffix(".pdf")
-    stack_pdf_path = txt_path.with_name(txt_path.stem + "_stack_report.pdf")  # 👈 Add this
+    stack_pdf_path = txt_path.with_name(txt_path.stem + "_stack_report.pdf")  
 
     print(f"🧵 New thread dump (.txt) detected: {txt_path.name}")
     try:
@@ -88,7 +88,7 @@ def process_thread_file(txt_path):
             print("📤 Mailing the Jstack Thread Dump Report...")
             attachments = [str(pdf_path)]
             if stack_pdf_path.exists():
-                attachments.append(str(stack_pdf_path))  # 👈 Add stack trace PDF if it exists
+                attachments.append(str(stack_pdf_path)) 
 
             send_report_email(
                 recipient=RECIPIENTS[0],
