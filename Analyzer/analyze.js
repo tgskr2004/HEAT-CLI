@@ -888,12 +888,13 @@ function Analyzer(text, specialClasses, threadStates) {
         specialThreadsAndStacks = this._toThreadsAndStacks(specialClasses);
         var allThreadsAndStacks = this._toThreadsAndStacks();
         var asHtml = "";
+        asHtml += this.toDeadlocksHtml();
         
         var allFilteredThreads = [];
         var allFilteredThreadsandStacks = [];
         var state = threadStates;
         const threadNameCounts = getThreadNameCounts(this.threads);
-        asHtml += "<h2>Thread Name Frequency</h2>\n";
+        asHtml += "<h2>Thread Name Frequency:</h2>\n";
         asHtml += '<table border="1" cellpadding="5" cellspacing="0">';
         asHtml += '<tr><th>Thread Name</th><th>Count</th><th>Examples</th></tr>';
         
@@ -1146,7 +1147,7 @@ Analyzer.prototype.toHighCpuThreadsHtml = function(highCpuThreads) {
     return html;
 };
 
-Analyzer.prototype.getHighCpuThreads = function(topN = 10) {
+Analyzer.prototype.getHighCpuThreads = function(topN = 20) {
     const threadsWithCpuTime = this.threads.filter(thread => thread.cpuTime && thread.cpuTime > 0 && !thread.daemon && thread.threadState === 'RUNNABLE');
     threadsWithCpuTime.sort((a, b) => b.cpuTime - a.cpuTime);
     return threadsWithCpuTime.slice(0, topN); 
@@ -1417,4 +1418,102 @@ function getThreadNameCounts(threads) {
     }));
     return result;
 }
+
+function findDeadlocks(threads) {
+    const lockHolders = new Map();
+    const waitingThreads = new Map();
+    
+    threads.forEach(thread => {
+        thread.locksHeld.forEach(lockId => {
+            lockHolders.set(lockId, thread);
+        });
+        
+        if (thread.wantToAcquire) {
+            waitingThreads.set(thread.tid, {
+                thread: thread,
+                waitingFor: thread.wantToAcquire
+            });
+        }
+    });
+    
+    const deadlocks = [];
+    const visited = new Set();
+    
+    function findCycle(startTid, currentTid, path = []) {
+        if (visited.has(currentTid)) {
+            const cycleStart = path.indexOf(currentTid);
+            if (cycleStart != -1) {
+                const cycle = path.slice(cycleStart).map(tid => {
+                    const waitingInfo = waitingThreads.get(tid);
+                    const holdingThread = lockHolders.get(waitingInfo.waitingFor);
+                    return {
+                        waitingThread: waitingInfo.thread,
+                        waitingForLock: waitingInfo.waitingFor,
+                        lockHolder: holdingThread
+                    };
+                });
+                deadlocks.push(cycle);
+            }
+            return;
+        }
+        
+        visited.add(currentTid);
+        path.push(currentTid);
+        
+        const waitingInfo = waitingThreads.get(currentTid);
+        if (waitingInfo) {
+            const lockHolder = lockHolders.get(waitingInfo.waitingFor);
+            if (lockHolder && waitingThreads.has(lockHolder.tid)) {
+                findCycle(startTid, lockHolder.tid, path);
+            }
+        }
+        
+        path.pop();
+        visited.delete(currentTid);
+    }
+    
+    waitingThreads.forEach((info, tid) => {
+        if (!visited.has(tid)) {
+            findCycle(tid, tid);
+        }
+    });
+    
+    return deadlocks;
+}
+
+Analyzer.prototype.findDeadlocks = function() {
+    return findDeadlocks(this.threads);
+};
+
+Analyzer.prototype.toDeadlocksHtml = function() {
+    const deadlocks = this.findDeadlocks();
+    if (deadlocks.length == 0) {
+        return '<div class="no-deadlocks" style="color: red; margin: 20px 0;">No deadlocks detected</div>';
+    }
+    
+    let html = '<div class="deadlocks" style="margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px;">';
+    html += '<h2 style="margin-bottom: 20px;">Deadlocks Detected:</h2>';
+    
+    deadlocks.forEach((cycle, index) => {
+        html += `<div class="deadlock-cycle" style="margin-bottom: 25px; padding: 15px; background-color: #f9f9f9; border-radius: 4px;">`;
+        html += `<h3 style="margin-bottom: 15px;">Cycle ${index + 1}</h3>`;
+        html += '<table border="1" cellpadding="8" cellspacing="0" style="width: 100%; border-collapse: collapse;">';
+        html += '<tr style="background-color: #f0f0f0;"><th style="padding: 10px;">Thread</th><th style="padding: 10px;">Waiting For Lock</th><th style="padding: 10px;">Lock Holder</th></tr>';
+        
+        cycle.forEach(({waitingThread, waitingForLock, lockHolder}) => {
+            html += '<tr>';
+            html += `<td style="padding: 10px;">${waitingThread.toHeaderHtml()}</td>`;
+            html += `<td style="padding: 10px;">${waitingForLock} (${waitingThread.synchronizerClasses[waitingForLock]})</td>`;
+            html += `<td style="padding: 10px;">${lockHolder.toHeaderHtml()}</td>`;
+            html += '</tr>';
+        });
+        
+        html += '</table>';
+        html += '</div>';
+    });
+    
+    html += '</div>';
+    html += '<hr style="margin: 30px 0;">';
+    return html;
+};
 
