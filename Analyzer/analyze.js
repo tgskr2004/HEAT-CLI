@@ -1317,6 +1317,20 @@ function createBarChart(stackTraceData) {
             }
         }
     });
+    
+    let stackTraceHTML = '<html><head><title>Stack Trace Report</title>';
+    stackTraceHTML += '<style>body { font-family: monospace; padding: 20px; } pre { white-space: pre-wrap; }</style>';
+    stackTraceHTML += '</head><body>';
+    stackTraceHTML += '<h1>Stack Trace Report</h1>';
+    
+    Object.entries(stackTraceData.actualStackTraces).forEach(([label, stackLines]) => {
+        stackTraceHTML += `<h2>${label}</h2>`;
+        stackTraceHTML += `<pre>${stackLines.join('\n')}</pre>`;
+        stackTraceHTML += '<hr>';
+    });
+    
+    stackTraceHTML += '</body></html>';
+    window.stackTraceHTML = stackTraceHTML;
 }
 
 function createDaemonChart(threads) {

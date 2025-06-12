@@ -16,7 +16,6 @@ FILES_DIR = BASE_DIR / "files"
 HEAP_DIR = FILES_DIR / "heapdumps"
 THREAD_DIR = FILES_DIR / "Jstack files"
 JMAP_DIR = FILES_DIR / "Jmap files"
-REPORT_DIR = BASE_DIR / "report"
 
 FILES_DIR.mkdir(exist_ok=True)
 HEAP_DIR.mkdir(exist_ok=True)
@@ -24,7 +23,7 @@ JMAP_DIR.mkdir(exist_ok=True)
 THREAD_DIR.mkdir(exist_ok=True)
 NODE_CMD = "node"
 HEAP_SCRIPT = "./script.sh"
-THREAD_JS = REPORT_DIR / "runner.js"
+THREAD_JS = BASE_DIR / "report" / "runner.js"
 
 email_flag = 0
 _default = os.getenv("EMAIL_TO", "")
@@ -37,7 +36,7 @@ else:
     print("No recipients configured. Mailing won't be enabled")
     email_flag = 1
 
-executor = ThreadPoolExecutor(max_workers=4)
+executor = ThreadPoolExecutor(max_workers=4) 
 def get_latest_heap_pdf_folder(base_path="."):
     workflow_dirs = sorted(
         Path(base_path).glob("files/heapdumps/hprof_workflow_*"),
