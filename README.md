@@ -3,8 +3,8 @@
 
 This unified tool provides automation, analysis, and PDF report generation for:
 
-- 🧵 **Jstack Java Thread Dumps** (based on [Spotify's Thread Dump Analyzer](https://github.com/spotify/threaddump-analyzer) with visualization enhancements)
-- 📦 **Java Heap Dumps** (`.hprof` via [Eclipse MAT](https://www.eclipse.org/mat/))
+- 🧵 **Jstack Java Thread Dumps** 
+- 📦 **Java Heap Dumps** 
 - 📊 **JMAP Text Output Files** (e.g., from `jmap -histo` or similar)
 
 It supports **automated watching**, **PDF generation**, and **email delivery** for:
