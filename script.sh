@@ -36,17 +36,17 @@ HPROF_DIR="$(cd "$(dirname "$HPROF_FILE")" && pwd)"
 SUSPECT_ZIP="$HPROF_DIR/${HPROF_BASENAME}_leak_suspects.zip"
 
 if [[ ! -f "$SUSPECT_ZIP" ]]; then
-  echo "ERROR: Expected ${HPROF_BASENAME}_leak_suspects.zip but didn’t find it in $HPROF_DIR."
+  echo "ERROR: Expected ${HPROF_BASENAME}_leak_suspects.zip but didn't find it in $HPROF_DIR."
   exit 1
 fi
 
-# echo ">>> Step 2: Extracting '$SUSPECT_ZIP'…"
+# echo ">>> Step 2: Extracting '$SUSPECT_ZIP'…"
 LEAK_HTML_DIR="$WORKDIR/leak-suspects"
 mkdir -p "$LEAK_HTML_DIR"
 unzip -q "$SUSPECT_ZIP" -d "$LEAK_HTML_DIR"
 echo "    → HTML folder ready at: $LEAK_HTML_DIR"
 
-# echo ">>> Step 3: Converting all HTML under '$LEAK_HTML_DIR' to PDFs…"
+# echo ">>> Step 3: Converting all HTML under '$LEAK_HTML_DIR' to PDFs…"
 PDF_OUTDIR="$WORKDIR/Report_PDFs"
 mkdir -p "$PDF_OUTDIR"
 
@@ -57,11 +57,13 @@ if [[ -f "$TOC_HTML" ]]; then
       --input_dir "$LEAK_HTML_DIR" \
       --output_dir "$PDF_OUTDIR" \
       --merge_pdf \
-      --toc_html "$TOC_HTML"
+      --toc_html "$TOC_HTML" \
+      --hprof_filename "$HPROF_BASENAME"
 else
   python3 "$HTML2PDF_SCRIPT" \
       --input_dir "$LEAK_HTML_DIR" \
-      --output_dir "$PDF_OUTDIR"
+      --output_dir "$PDF_OUTDIR" \
+      --hprof_filename "$HPROF_BASENAME"
 fi
 
 
