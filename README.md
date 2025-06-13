@@ -7,7 +7,7 @@ This unified tool provides automation, analysis, and PDF report generation for:
 - 📦 **Java Heap Dumps** 
 - 📊 **JMAP Text Output Files** (e.g., from `jmap -histo` or similar)
 
-It supports **automated watching**, **PDF generation**, and **email delivery** for:
+It supports **automated watching**, **PDF generation**, and **mailing** for:
 
 - `.txt` (thread dumps or JMAP output)
 - `.hprof` (heap dumps)
