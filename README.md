@@ -175,16 +175,6 @@ Paste the text into the input box or upload your `.txt` file (thread dump or JMA
 
 ---
 
-## 🛠️ Built With
-
-- [Node.js](https://nodejs.org/)
-- [Python 3](https://www.python.org/)
-- [Puppeteer](https://pptr.dev/)
-- [Eclipse Memory Analyzer](https://www.eclipse.org/mat/)
-- [Spotify Thread Dump Analyzer](https://github.com/spotify/threaddump-analyzer)
-
----
-
 ## 🏁 Final Tips
 
 - Refresh the browser page or click **Clear All** before multiple analyses
