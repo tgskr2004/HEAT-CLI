@@ -16,11 +16,15 @@ FILES_DIR = BASE_DIR / "files"
 HEAP_DIR = FILES_DIR / "heapdumps"
 THREAD_DIR = FILES_DIR / "Jstack files"
 JMAP_DIR = FILES_DIR / "Jmap files"
+THREAD_OUTPUT_DIR = THREAD_DIR / "Jstack Reports"
+JMAP_OUTPUT_DIR = JMAP_DIR / "Jmap Reports"
 
 FILES_DIR.mkdir(exist_ok=True)
 HEAP_DIR.mkdir(exist_ok=True)
 JMAP_DIR.mkdir(exist_ok=True)
 THREAD_DIR.mkdir(exist_ok=True)
+THREAD_OUTPUT_DIR.mkdir(exist_ok=True)
+JMAP_OUTPUT_DIR.mkdir(exist_ok=True)
 NODE_CMD = "node"
 HEAP_SCRIPT = "./script.sh"
 THREAD_JS = BASE_DIR / "report" / "runner.js"
@@ -51,13 +55,13 @@ def get_latest_heap_pdf_folder(base_path="."):
 
 
 def process_heap_file(hprof_path):
-    print(f"📦 New heap dump (.hprof) file detected: {hprof_path.name}")
+    print(f"-> New heap dump (.hprof) file detected: {hprof_path.name}")
     try:
         subprocess.run(["bash", HEAP_SCRIPT, str(hprof_path)], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
         latest_pdf_folder = get_latest_heap_pdf_folder()
         if latest_pdf_folder:
             if email_flag == 0:
-                print("📤 Mailing the Heap Dump Report...")
+                print("Mailing the Heap Dump Report...")
                 send_report_email(
                     recipient=RECIPIENTS[0],
                     subject=f"Heap Dump Report: {hprof_path.name}",
@@ -73,10 +77,10 @@ def process_heap_file(hprof_path):
 
 
 def process_thread_file(txt_path):
-    pdf_path = txt_path.with_suffix(".pdf")
-    stack_pdf_path = txt_path.with_name(txt_path.stem + "_stack_report.pdf")  
+    pdf_path = THREAD_OUTPUT_DIR / f"{txt_path.stem}.pdf"
+    stack_pdf_path = THREAD_OUTPUT_DIR / f"{txt_path.stem}_stack_report.pdf"  
 
-    print(f"🧵 New thread dump (.txt) detected: {txt_path.name}")
+    print(f"-> New thread dump (.txt) detected: {txt_path.name}")
     try:
         subprocess.run([NODE_CMD, str(THREAD_JS), str(txt_path), str(pdf_path)], check=True)
     except subprocess.CalledProcessError as e:
@@ -102,8 +106,8 @@ def process_thread_file(txt_path):
 
 
 def process_jmap_file(jmap_path):
-    pdf_path = jmap_path.with_suffix(".pdf")
-    print(f"📊 New JMAP file detected: {jmap_path.name}")
+    pdf_path = JMAP_OUTPUT_DIR / f"{jmap_path.stem}.pdf"
+    print(f"-> New JMAP file detected: {jmap_path.name}")
     try:
         subprocess.run([NODE_CMD, str(THREAD_JS), str(jmap_path), str(pdf_path)], check=True)
     except subprocess.CalledProcessError as e:

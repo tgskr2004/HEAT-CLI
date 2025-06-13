@@ -5,7 +5,7 @@ from playwright.sync_api import sync_playwright, TimeoutError as PlaywrightTimeo
 from bs4 import BeautifulSoup
 from PyPDF2 import PdfMerger
 
-def get_rewrite_links_js(output_dir: Path) -> str:
+def get_rewrite_links(output_dir: Path) -> str:
     report_pdf_dir_uri = output_dir.resolve().as_uri()
     return rf"""
     (() => {{
@@ -24,7 +24,7 @@ def get_rewrite_links_js(output_dir: Path) -> str:
     }})();
     """
 
-def get_expand_all_sections_js() -> str: #deals with hidden divs that appear on clicking arrow
+def get_expand_all_sections() -> str: #deals with hidden divs that appear on clicking arrow
     return r"""
     (() => {
       const anchors = document.querySelectorAll('a[onclick*="hide(this"]');
@@ -69,8 +69,8 @@ def convert_all_html_to_pdf(input_dir: Path, output_dir: Path, timeout_ms: int =
             try:
                 page = browser.new_page(viewport={"width": 1280, "height": 800})
                 page.goto(file_url, wait_until='networkidle', timeout=timeout_ms)
-                page.evaluate(get_rewrite_links_js(output_dir))
-                page.evaluate(get_expand_all_sections_js())  # 👈 expands collapsibles
+                page.evaluate(get_rewrite_links(output_dir))
+                page.evaluate(get_expand_all_sections()) 
 
                 page.pdf(
                     path=str(out_pdf),
@@ -79,7 +79,6 @@ def convert_all_html_to_pdf(input_dir: Path, output_dir: Path, timeout_ms: int =
                     scale=1.0
                 )
                 page.close()
-                # print("Done.")
             except PlaywrightTimeoutError:
                 print("✒ Timeout loading page (skipped).")
             except Exception as e:

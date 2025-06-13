@@ -329,8 +329,8 @@ function Thread(line) {
             var lockClassName = match[2];
             this.synchronizerClasses[lockId] = lockClassName;
             // Threads can take the same lock in different frames, but
-            // we just want a mapping between threads and locks so we
-            // must not list any lock more than once.
+            // we just want a mapping between threads and locks so
+            // we must not list any lock more than once.
             arrayAddUnique(this.locksHeld, lockId);
             return true;
         }
@@ -909,35 +909,26 @@ function Analyzer(text, specialClasses, threadStates) {
             });
         asHtml += '</table><br>';
 
-        // Print special class threads
         if (specialThreadsAndStacks.length > 0) {
-
-            //console.log(threadStates);
             asHtml += "<h2>Threads containing Keywords: " + specialClasses + "</h2>\n";
             asHtml += '<table border="1" cellpadding="5" cellspacing="0">';
             asHtml += '<tr><th>Number of Threads</th><th>Threads</th><th>Stack</th></tr>';
             for (var i = 0; i < specialThreadsAndStacks.length; i++) {
-
                 var currentThreadsAndStack = specialThreadsAndStacks[i];
                 var threads = currentThreadsAndStack.threads;
-    
-                // Filter threads based on the state if a state is specified
+
                 var filteredThreads = threads;
                 if (state && state.length > 0) {
-                    //console.log(state);
                     filteredThreads = threads.filter(function(thread) {
                         if (thread.threadState) {
-                            var firstWordOfState = thread.threadState.split(' ')[0]; // Extract the first word
-                            console.log(thread.threadState, firstWordOfState, state.includes(firstWordOfState));
+                            var firstWordOfState = thread.threadState.split(' ')[0];
                             return state.includes(firstWordOfState);
                         }
-                        return false; // Exclude threads without a valid threadState
+                        return false;
                     });
                 }
 
-    
                 if (filteredThreads.length > 0) {
-                    
                     allFilteredThreads = allFilteredThreads.concat(filteredThreads)
                     allFilteredThreadsandStacks = allFilteredThreadsandStacks.concat({
                         stackTrace: currentThreadsAndStack.stackFrames,
@@ -946,32 +937,28 @@ function Analyzer(text, specialClasses, threadStates) {
 
                     asHtml += '<tr>';
                     asHtml += '<td>' + filteredThreads.length + '</td>';
-    
-                    // Preview for threads column
                     var threadsPreview = filteredThreads.map(function(thread) {
                         return thread.toHeaderHtml();
                     }).slice(0, 3).join("<br>") + '...';
                     asHtml += `<td><a href="#" data-type="threads" data-index="${i}" onclick="showDetails(this)">${threadsPreview}</a></td>`;
-    
-                    // Preview for stack column
                     var stackPreview = currentThreadsAndStack.stackFrames.slice(0, 3).join("<br>") + '...';
                     asHtml += `<td><a href="#" data-type="stack" data-index="${i}" onclick="showDetails(this)">${stackPreview}</a></td>`;
-    
                     asHtml += '</tr>';
                 }
             }
             
             asHtml += '</table>';
 
-            // Passing all filtered out threads to generate a pie char
+            // Generate stack traces in the existing stack_traces.html file
+            const totalStackTraces = createStackTraceHtml(allFilteredThreadsandStacks);
+            // Store the total count for reference
+            window.totalStackTraces = totalStackTraces;
+
+            // Create charts
             var threadStateCounts = getThreadStateCounts(allFilteredThreads);
             createPieChart(threadStateCounts, allFilteredThreads);
-
-            // Passing all filtered out stack traces and threads to generate a bar graph
             var stackTraceData = getStackTraceCounts(allFilteredThreadsandStacks);
             createBarChart(stackTraceData);
-
-            // Create the doughnut chart for daemon and non-daemon threads
             createDaemonChart(allFilteredThreads);
         }
     
@@ -1196,7 +1183,6 @@ function getStackTraceCounts(allFilteredThreadsandStacks) {
     var index = 1;
 
     allFilteredThreadsandStacks.forEach(function(stackTraces) {
-       // Check if the stack trace is non-empty
        if (stackTraces.stackTrace && stackTraces.stackTrace.length > 0) {
         var stackTrace = "Stack Trace " + index;
         if (!(stackTrace in stackTraceCounts)) {
@@ -1318,8 +1304,16 @@ function createBarChart(stackTraceData) {
         }
     });
     
-    let stackTraceHTML = '<html><head><title>Stack Trace Report</title>';
-    stackTraceHTML += '<style>body { font-family: monospace; padding: 20px; } pre { white-space: pre-wrap; }</style>';
+    let stackTraceHTML = '<!DOCTYPE html>';
+    stackTraceHTML += '<html><head>';
+    stackTraceHTML += '<title>Stack Trace Report</title>';
+    stackTraceHTML += '<style>';
+    stackTraceHTML += 'body { font-family: Arial, sans-serif; margin: 20px; }';
+    stackTraceHTML += '.stack-trace-block { margin-bottom: 20px; padding: 15px; border: 1px solid #ddd; border-radius: 4px; }';
+    stackTraceHTML += 'pre { white-space: pre-wrap; background-color: #f5f5f5; padding: 10px; border-radius: 4px; }';
+    stackTraceHTML += 'h2 { color: #333; }';
+    stackTraceHTML += 'h3 { color: #666; }';
+    stackTraceHTML += '</style>';
     stackTraceHTML += '</head><body>';
     stackTraceHTML += '<h1>Stack Trace Report</h1>';
     
@@ -1499,11 +1493,56 @@ Analyzer.prototype.findDeadlocks = function() {
     return findDeadlocks(this.threads);
 };
 
+function createStackTraceHtml(allFilteredThreadsandStacks) {
+    const stackTraceMap = new Map();
+    let stackTraceCounter = 1;
+    
+    allFilteredThreadsandStacks.forEach(({stackTrace}) => {
+        const stackString = stackTrace.join('\n');
+        if (!stackTraceMap.has(stackString)) {
+            stackTraceMap.set(stackString, {
+                id: stackTraceCounter++,
+                content: stackString
+            });
+        }
+    });
+    
+    // Sort and display stack traces
+    const sortedStackTraces = Array.from(stackTraceMap.entries())
+        .sort((a, b) => a[1].id - b[1].id);
+        
+    let html = '';
+    sortedStackTraces.forEach(([stackString, {id, content}]) => {
+        html += `<div id="stack-trace-${id}" class="stack-trace-block">`;
+        html += `<h3>Stack Trace #${id}</h3>`;
+        html += `<pre>${content}</pre>`;
+        html += '</div>';
+    });
+    
+    // Write to stack_traces.html
+    const stackTracesDiv = document.getElementById('stack-traces-content');
+    if (stackTracesDiv) {
+        stackTracesDiv.innerHTML = html;
+    }
+    
+    return stackTraceCounter - 1; 
+}
+
 Analyzer.prototype.toDeadlocksHtml = function() {
     const deadlocks = this.findDeadlocks();
     if (deadlocks.length == 0) {
         return '<div class="no-deadlocks" style="color: red; margin: 20px 0;">No deadlocks detected</div>';
     }
+    const stackTraceMap = new Map();
+    let stackTraceCounter = 1;
+    deadlocks.forEach(cycle => {
+        cycle.forEach(({waitingThread}) => {
+            const stackString = waitingThread.frames.join('\n');
+            if (!stackTraceMap.has(stackString)) {
+                stackTraceMap.set(stackString, stackTraceCounter++);
+            }
+        });
+    });
     
     let html = '<div class="deadlocks" style="margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px;">';
     html += '<h2 style="margin-bottom: 20px;">Deadlocks Detected:</h2>';
@@ -1512,13 +1551,20 @@ Analyzer.prototype.toDeadlocksHtml = function() {
         html += `<div class="deadlock-cycle" style="margin-bottom: 25px; padding: 15px; background-color: #f9f9f9; border-radius: 4px;">`;
         html += `<h3 style="margin-bottom: 15px;">Cycle ${index + 1}</h3>`;
         html += '<table border="1" cellpadding="8" cellspacing="0" style="width: 100%; border-collapse: collapse;">';
-        html += '<tr style="background-color: #f0f0f0;"><th style="padding: 10px;">Thread</th><th style="padding: 10px;">Waiting For Lock</th><th style="padding: 10px;">Lock Holder</th></tr>';
-        
+        html += '<tr style="background-color: #f0f0f0;"><th style="padding: 10px;">Thread</th><th style="padding: 10px;">Waiting For Lock</th><th style="padding: 10px;">Lock Holder</th><th style="padding: 10px;">Stack Trace</th></tr>';
         cycle.forEach(({waitingThread, waitingForLock, lockHolder}) => {
+            const stackString = waitingThread.frames.join('\n');
+            const stackTraceNumber = stackTraceMap.get(stackString);
             html += '<tr>';
             html += `<td style="padding: 10px;">${waitingThread.toHeaderHtml()}</td>`;
             html += `<td style="padding: 10px;">${waitingForLock} (${waitingThread.synchronizerClasses[waitingForLock]})</td>`;
             html += `<td style="padding: 10px;">${lockHolder.toHeaderHtml()}</td>`;
+            html += `<td style="padding: 10px;">
+                <div style="margin-bottom: 5px;"><strong>Stack Trace #${stackTraceNumber}</strong></div>
+                <a href="#" onclick="event.preventDefault(); const win = window.open('', '_blank'); win.document.write('<pre>' + '${stackString.replace(/'/g, "\\'")}' + '</pre>'); win.document.close();" style="color: #0066cc; text-decoration: underline; cursor: pointer;">
+                    <pre style="margin: 0; white-space: pre-wrap;">${stackString}</pre>
+                </a>
+            </td>`;
             html += '</tr>';
         });
         
