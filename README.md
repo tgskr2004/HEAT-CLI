@@ -3,11 +3,11 @@
 
 This unified tool provides automation, analysis, and PDF report generation for:
 
-- 🧵 **Jstack Java Thread Dumps** (based on [Spotify's Thread Dump Analyzer](https://github.com/spotify/threaddump-analyzer) with visualization enhancements)
-- 📦 **Java Heap Dumps** (`.hprof` via [Eclipse MAT](https://www.eclipse.org/mat/))
+- 🧵 **Jstack Java Thread Dumps** 
+- 📦 **Java Heap Dumps** 
 - 📊 **JMAP Text Output Files** (e.g., from `jmap -histo` or similar)
 
-It supports **automated watching**, **PDF generation**, and **email delivery** for:
+It supports **automated watching**, **PDF generation**, and **mailing** for:
 
 - `.txt` (thread dumps or JMAP output)
 - `.hprof` (heap dumps)
@@ -172,16 +172,6 @@ Paste the text into the input box or upload your `.txt` file (thread dump or JMA
 - Contains sorted class-level memory data
 - Charts and placeholders are removed
 - Emailed automatically
-
----
-
-## 🛠️ Built With
-
-- [Node.js](https://nodejs.org/)
-- [Python 3](https://www.python.org/)
-- [Puppeteer](https://pptr.dev/)
-- [Eclipse Memory Analyzer](https://www.eclipse.org/mat/)
-- [Spotify Thread Dump Analyzer](https://github.com/spotify/threaddump-analyzer)
 
 ---
 
