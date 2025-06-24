@@ -5,11 +5,12 @@ from playwright.sync_api import sync_playwright, TimeoutError as PlaywrightTimeo
 from bs4 import BeautifulSoup
 from PyPDF2 import PdfMerger
 
-def get_rewrite_links(output_dir: Path) -> str:
+def get_rewrite_links(output_dir: Path, hprof_filename: str) -> str:
     report_pdf_dir_uri = output_dir.resolve().as_uri()
     return rf"""
     (() => {{
       const pdfBase = "{report_pdf_dir_uri}/";
+      const prefix = "{hprof_filename}_";
       document.querySelectorAll('a[href]').forEach(a => {{
         const href = a.getAttribute('href');
         if (!href || /^(https?:|\/\/|file:|#)/i.test(href)) return;
@@ -18,7 +19,7 @@ def get_rewrite_links(output_dir: Path) -> str:
         if (match) {{
           const filename = match[1];
           const anchor = match[2] || '';
-          a.setAttribute('href', pdfBase + filename + '.pdf' + anchor);
+          a.setAttribute('href', pdfBase + prefix + filename + '.pdf' + anchor);
         }}
       }});
     }})();
@@ -68,7 +69,7 @@ def convert_all_html_to_pdf(input_dir: Path, output_dir: Path, hprof_filename: s
             try:
                 page = browser.new_page(viewport={"width": 1280, "height": 800})
                 page.goto(file_url, wait_until='networkidle', timeout=timeout_ms)
-                page.evaluate(get_rewrite_links(output_dir))
+                page.evaluate(get_rewrite_links(output_dir, hprof_filename))
                 page.evaluate(get_expand_all_sections())
 
                 page.pdf(
